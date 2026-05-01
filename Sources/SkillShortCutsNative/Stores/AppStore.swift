@@ -38,6 +38,7 @@ final class AppStore: ObservableObject {
     private let llmClient = LLMClient()
     private let workspaceWriter = RunWorkspaceWriter()
     private let gatekeeper = GatekeeperService()
+    private var libraryItemsByID: [String: LibraryItem] = [:]
     private var currentReviewIndex: Int?
     private var activeRunSessionID: UUID?
     private var runActionTask: Task<Void, Never>?
@@ -140,10 +141,15 @@ final class AppStore: ObservableObject {
 
     func loadLibrary() async {
         do {
-            library = try loader.load(from: libraryPath)
+            let loadedLibrary = try loader.load(from: libraryPath)
+            library = loadedLibrary
+            libraryItemsByID = loadedLibrary.items.reduce(into: [:]) { result, item in
+                result[item.id] = item
+            }
             errorMessage = ""
         } catch {
             library = nil
+            libraryItemsByID = [:]
             errorMessage = error.localizedDescription
         }
     }
@@ -357,22 +363,26 @@ final class AppStore: ObservableObject {
             workflow.input.criteria,
             workflow.input.prompt
         ].joined(separator: " ").lowercased()
-        return library.items
-            .filter { item in
-                if let kind, item.kind != kind { return false }
-                if item.kind == .rootSkill { return false }
-                if search.isEmpty { return true }
-                let hay = "\(item.name) \(item.title) \(item.summary) \(item.tags.joined(separator: " "))".lowercased()
-                return hay.contains(search)
+        let terms = rankingTerms(prompt: prompt, search: search)
+
+        return library.items.enumerated()
+            .compactMap { index, item -> (index: Int, item: LibraryItem, score: Int)? in
+                if let kind, item.kind != kind { return nil }
+                if item.kind == .rootSkill { return nil }
+                let hay = searchableText(for: item)
+                if !search.isEmpty, !hay.contains(search) { return nil }
+                return (index, item, score(item: item, searchableText: hay, rankingTerms: terms))
             }
             .sorted { lhs, rhs in
-                score(item: lhs, prompt: prompt, search: search) > score(item: rhs, prompt: prompt, search: search)
+                if lhs.score == rhs.score { return lhs.index < rhs.index }
+                return lhs.score > rhs.score
             }
+            .map(\.item)
     }
 
     func item(id: String?) -> LibraryItem? {
         guard let id else { return nil }
-        return library?.items.first { $0.id == id }
+        return libraryItemsByID[id]
     }
 
     func refreshPromptPreview() {
@@ -1064,14 +1074,20 @@ final class AppStore: ObservableObject {
         ))
     }
 
-    private func score(item: LibraryItem, prompt: String, search: String) -> Int {
-        let hay = "\(item.name) \(item.title) \(item.summary) \(item.tags.joined(separator: " "))".lowercased()
-        let terms = (prompt + " " + search)
+    private func searchableText(for item: LibraryItem) -> String {
+        "\(item.name) \(item.title) \(item.summary) \(item.tags.joined(separator: " "))".lowercased()
+    }
+
+    private func rankingTerms(prompt: String, search: String) -> [String] {
+        (prompt + " " + search)
             .split { !$0.isLetter && !$0.isNumber }
             .map(String.init)
             .filter { $0.count > 2 }
-        return terms.reduce(0) { partial, term in
-            partial + (hay.contains(term) ? 3 : 0)
+    }
+
+    private func score(item: LibraryItem, searchableText: String, rankingTerms: [String]) -> Int {
+        rankingTerms.reduce(0) { partial, term in
+            partial + (searchableText.contains(term) ? 3 : 0)
         } + (item.kind == .consultingAgent ? 2 : 0)
     }
 }

@@ -268,7 +268,10 @@ struct DataLibraryView: View {
         .disabled(store.workflowMode != .edit)
     }
 
+    @ViewBuilder
     private var librarySection: some View {
+        let snapshot = paletteSnapshot()
+
         VStack(alignment: .leading, spacing: 10) {
             Label("Block-Palette", systemImage: "square.grid.3x3")
                 .font(.nwebHeadline)
@@ -292,19 +295,19 @@ struct DataLibraryView: View {
                 .pickerStyle(.segmented)
             }
 
-            filterBar
+            filterBar(snapshot: snapshot)
 
             CategoryHint(mode: mode, whatFilter: whatFilter, whoFilter: whoFilter)
 
-            Text("\(itemsForMode.count) passende Blöcke")
+            Text("\(snapshot.visibleItems.count) passende Blöcke")
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(Color.nwebTextSecondary)
 
-            if itemsForMode.isEmpty {
+            if snapshot.visibleItems.isEmpty {
                 EmptyFilterState()
             } else {
                 LazyVStack(spacing: 8) {
-                    ForEach(itemsForMode) { item in
+                    ForEach(snapshot.visibleItems) { item in
                         LibraryRow(item: item)
                     }
                 }
@@ -314,20 +317,8 @@ struct DataLibraryView: View {
         .disabled(store.workflowMode != .edit)
     }
 
-    private var itemsForMode: [LibraryItem] {
-        switch mode {
-        case .what:
-            return store.filteredItems()
-                .filter { $0.kind == .consultingAgent || $0.kind == .jobSkill || $0.kind == .qualityGate }
-                .filter { whatFilter.matches($0) }
-        case .who:
-            return store.filteredItems(kind: .personaSkill)
-                .filter { whoFilter.matches($0) }
-        }
-    }
-
     @ViewBuilder
-    private var filterBar: some View {
+    private func filterBar(snapshot: PaletteSnapshot) -> some View {
         let columns = [
             GridItem(.adaptive(minimum: 136), spacing: 8)
         ]
@@ -343,7 +334,7 @@ struct DataLibraryView: View {
                     ForEach(WhatFilter.allCases) { filter in
                         FilterChip(
                             title: filter.label,
-                            count: count(for: filter),
+                            count: snapshot.count(for: filter),
                             isSelected: whatFilter == filter,
                             color: filter.color,
                             selectedForeground: filter.selectedForeground
@@ -355,7 +346,7 @@ struct DataLibraryView: View {
                     ForEach(WhoFilter.allCases) { filter in
                         FilterChip(
                             title: filter.label,
-                            count: count(for: filter),
+                            count: snapshot.count(for: filter),
                             isSelected: whoFilter == filter,
                             color: filter.color,
                             selectedForeground: filter.selectedForeground
@@ -391,17 +382,27 @@ struct DataLibraryView: View {
         }
     }
 
-    private func count(for filter: WhatFilter) -> Int {
-        store.filteredItems()
-            .filter { $0.kind == .consultingAgent || $0.kind == .jobSkill || $0.kind == .qualityGate }
-            .filter { filter.matches($0) }
-            .count
-    }
+    private func paletteSnapshot() -> PaletteSnapshot {
+        let indexedItems = store.filteredItems().map(PaletteIndexedItem.init)
+        let whatItems = indexedItems.filter { $0.item.kind.isWhatPaletteKind }
+        let whoItems = indexedItems.filter { $0.item.kind == .personaSkill }
 
-    private func count(for filter: WhoFilter) -> Int {
-        store.filteredItems(kind: .personaSkill)
-            .filter { filter.matches($0) }
-            .count
+        switch mode {
+        case .what:
+            let counts = WhatFilter.counts(in: whatItems)
+            return PaletteSnapshot(
+                visibleItems: whatItems.filter { whatFilter.matches($0) }.map(\.item),
+                whatCounts: counts,
+                whoCounts: [:]
+            )
+        case .who:
+            let counts = WhoFilter.counts(in: whoItems)
+            return PaletteSnapshot(
+                visibleItems: whoItems.filter { whoFilter.matches($0) }.map(\.item),
+                whatCounts: [:],
+                whoCounts: counts
+            )
+        }
     }
 }
 
@@ -429,6 +430,50 @@ private struct BuildGuideRow: View {
                     .lineLimit(1)
             }
         }
+    }
+}
+
+private struct PaletteSnapshot {
+    let visibleItems: [LibraryItem]
+    let whatCounts: [WhatFilter: Int]
+    let whoCounts: [WhoFilter: Int]
+
+    func count(for filter: WhatFilter) -> Int {
+        whatCounts[filter, default: 0]
+    }
+
+    func count(for filter: WhoFilter) -> Int {
+        whoCounts[filter, default: 0]
+    }
+}
+
+private struct PaletteIndexedItem {
+    let item: LibraryItem
+    private let identityText: String
+    private let profileText: String
+
+    init(item: LibraryItem) {
+        self.item = item
+        identityText = Self.normalize("\(item.id) \(item.name) \(item.title)")
+        profileText = Self.normalize("\(item.id) \(item.name) \(item.title) \(item.summary)")
+    }
+
+    func identityContainsAny(_ keywords: [String]) -> Bool {
+        containsAny(keywords, in: identityText)
+    }
+
+    func profileContainsAny(_ keywords: [String]) -> Bool {
+        containsAny(keywords, in: profileText)
+    }
+
+    private func containsAny(_ keywords: [String], in haystack: String) -> Bool {
+        keywords.contains { haystack.contains(Self.normalize($0)) }
+    }
+
+    private static func normalize(_ value: String) -> String {
+        value
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .lowercased()
     }
 }
 
@@ -605,7 +650,7 @@ private enum LibraryMode: String, CaseIterable, Identifiable {
     }
 }
 
-private enum WhatFilter: String, CaseIterable, Identifiable {
+private enum WhatFilter: String, CaseIterable, Identifiable, Hashable {
     case all
     case analyze
     case create
@@ -663,31 +708,37 @@ private enum WhatFilter: String, CaseIterable, Identifiable {
         }
     }
 
-    func matches(_ item: LibraryItem) -> Bool {
+    static func counts(in items: [PaletteIndexedItem]) -> [WhatFilter: Int] {
+        Dictionary(uniqueKeysWithValues: allCases.map { filter in
+            (filter, items.lazy.filter { filter.matches($0) }.count)
+        })
+    }
+
+    func matches(_ item: PaletteIndexedItem) -> Bool {
         switch self {
         case .all:
             return true
         case .analyze:
-            return item.matchesIdentity([
+            return item.identityContainsAny([
                 "analyse", "analysis", "analyst", "analytics", "problemloser", "marktexperte",
                 "prognostiker", "architect", "architekt", "security", "auditor", "risk", "risiko"
             ])
         case .create:
-            return item.matchesIdentity([
+            return item.identityContainsAny([
                 "reporter", "redakteur", "dokument", "documentation", "requirements",
                 "designer", "ux", "ui", "product-owner", "summary", "folio", "pr-"
             ])
         case .quality:
-            return item.kind == .qualityGate || item.matchesIdentity([
+            return item.item.kind == .qualityGate || item.identityContainsAny([
                 "lektor", "auditor", "security", "compliance", "soc", "quality", "pruef", "pruf", "qs"
             ])
         case .decide:
-            return item.matchesIdentity([
+            return item.identityContainsAny([
                 "stratege", "strategy", "strategic", "purchaser", "head-of-it",
                 "business", "backoffice", "personalchef", "product-owner", "management", "finance"
             ])
         case .automate:
-            return item.matchesIdentity([
+            return item.identityContainsAny([
                 "operations", "devops", "release", "application", "cloud", "developer",
                 "engineer", "technician", "service", "support", "sap", "workflow", "orchestr"
             ])
@@ -695,7 +746,7 @@ private enum WhatFilter: String, CaseIterable, Identifiable {
     }
 }
 
-private enum WhoFilter: String, CaseIterable, Identifiable {
+private enum WhoFilter: String, CaseIterable, Identifiable, Hashable {
     case all
     case domain
     case leadership
@@ -753,32 +804,38 @@ private enum WhoFilter: String, CaseIterable, Identifiable {
         }
     }
 
-    func matches(_ item: LibraryItem) -> Bool {
+    static func counts(in items: [PaletteIndexedItem]) -> [WhoFilter: Int] {
+        Dictionary(uniqueKeysWithValues: allCases.map { filter in
+            (filter, items.lazy.filter { filter.matches($0) }.count)
+        })
+    }
+
+    func matches(_ item: PaletteIndexedItem) -> Bool {
         switch self {
         case .all:
             return true
         case .domain:
-            return item.matchesProfile([
+            return item.profileContainsAny([
                 "wissenschaftler", "rechts", "jurist", "energie", "gesundheit", "daten",
                 "biotechnologie", "finanz", "bank", "philosoph"
             ])
         case .leadership:
-            return item.matchesProfile([
+            return item.profileContainsAny([
                 "unternehmer", "tech leader", "fuehrung", "fuhrung", "management",
                 "strategischer berater", "investor", "mogul", "bezos", "jobs", "musk", "nadella"
             ])
         case .creative:
-            return item.matchesProfile([
+            return item.profileContainsAny([
                 "kreativ", "design", "vision", "produkt", "fotografie", "medien",
                 "verlag", "schreiber", "artist", "community", "evangelist", "innovation"
             ])
         case .critical:
-            return item.matchesProfile([
+            return item.profileContainsAny([
                 "krit", "skept", "risiko", "rechts", "jurist", "staats", "politik",
                 "bank", "finanz", "diplomat", "verteidigung", "compliance", "reform"
             ])
         case .communication:
-            return item.matchesProfile([
+            return item.profileContainsAny([
                 "kommunikation", "rhetorik", "redner", "volksredner", "story",
                 "marketing", "medien", "moderator", "coach", "sales", "schreiber", "verlag"
             ])
@@ -786,33 +843,14 @@ private enum WhoFilter: String, CaseIterable, Identifiable {
     }
 }
 
-private extension LibraryItem {
-    func matchesIdentity(_ keywords: [String]) -> Bool {
-        containsAny(keywords, in: [
-            id,
-            name,
-            title
-        ])
-    }
-
-    func matchesProfile(_ keywords: [String]) -> Bool {
-        containsAny(keywords, in: [
-            id,
-            name,
-            title,
-            summary
-        ])
-    }
-
-    private func containsAny(_ keywords: [String], in fields: [String]) -> Bool {
-        let haystack = normalize(fields.joined(separator: " "))
-        return keywords.contains { haystack.contains(normalize($0)) }
-    }
-
-    private func normalize(_ value: String) -> String {
-        value
-            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
-            .lowercased()
+private extension LibraryItemKind {
+    var isWhatPaletteKind: Bool {
+        switch self {
+        case .consultingAgent, .jobSkill, .qualityGate:
+            return true
+        case .rootSkill, .personaSkill:
+            return false
+        }
     }
 }
 
