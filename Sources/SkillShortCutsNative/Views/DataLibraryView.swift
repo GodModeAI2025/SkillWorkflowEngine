@@ -13,7 +13,6 @@ struct DataLibraryView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     paletteHeader
-                    buildGuideSection
                     modeSection
                     workflowSection
                     sourceSection
@@ -35,26 +34,6 @@ struct DataLibraryView: View {
         )
         .padding(-20)
         .padding(.bottom, 2)
-    }
-
-    private var buildGuideSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Pipe bauen", systemImage: "point.topleft.down.curvedto.point.bottomright.up")
-                .font(.nwebHeadline)
-                .foregroundStyle(PipesStyle.sourceBlue)
-
-            Text("Wie bei Yahoo Pipes: Module aus der Library auf den Canvas ziehen, dort verbinden und im Debugger prüfen.")
-                .font(.caption)
-                .foregroundStyle(Color.nwebTextSecondary)
-
-            VStack(alignment: .leading, spacing: 8) {
-                BuildGuideRow(number: 1, title: "Source", detail: "Ordner, Ziel und Kontext setzen", color: PipesStyle.sourceBlue)
-                BuildGuideRow(number: 2, title: "Operator", detail: "WAS-Modul auf den Canvas ziehen", color: PipesStyle.operatorPurple)
-                BuildGuideRow(number: 3, title: "Persona", detail: "WER als Parameter ergänzen", color: PipesStyle.personaOrange)
-                BuildGuideRow(number: 4, title: "Debugger", detail: "Run, QS, Redo und Output prüfen", color: PipesStyle.outputTeal)
-            }
-        }
-        .pipePanel(color: PipesStyle.sourceBlue)
     }
 
     private var modeSection: some View {
@@ -227,7 +206,11 @@ struct DataLibraryView: View {
     }
 
     private var templateSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let canEdit = store.workflowMode == .edit
+        let canLoadTemplate = canEdit && !selectedTemplateID.isEmpty
+        let canLoadDemo = canEdit && store.library != nil
+
+        return VStack(alignment: .leading, spacing: 8) {
             Label("Saved Pipes", systemImage: "rectangle.stack")
                 .font(.nwebHeadline)
                 .foregroundStyle(Color.nwebAccent)
@@ -236,20 +219,35 @@ struct DataLibraryView: View {
                 "Vorlage",
                 message: "Wählt eine vorbereitete Pipe aus der Modul-Bibliothek. Übernehmen füllt daraus die Prozesskette mit passenden WAS-Modulen."
             ) {
-                Picker("Vorlage", selection: $selectedTemplateID) {
-                    Text("Keine Vorlage").tag("")
-                    ForEach(store.library?.templates ?? []) { template in
-                        Text("\(template.id) · \(template.title)").tag(template.id)
+                Menu {
+                    Button("Keine Vorlage") {
+                        selectedTemplateID = ""
                     }
+                    ForEach(store.library?.templates ?? []) { template in
+                        Button("\(template.id) · \(template.title)") {
+                            selectedTemplateID = template.id
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Text(selectedTemplateTitle)
+                            .lineLimit(1)
+                        Spacer(minLength: 8)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.body.weight(.semibold))
+                    }
+                    .pipeControlSurface(isEnabled: canEdit)
                 }
-                .labelsHidden()
+                .buttonStyle(.plain)
+                .disabled(!canEdit)
             }
 
             Button("Vorlage als Pipe übernehmen") {
                 guard let template = store.library?.templates.first(where: { $0.id == selectedTemplateID }) else { return }
                 store.loadTemplate(template)
             }
-            .disabled(selectedTemplateID.isEmpty)
+            .buttonStyle(PipeSecondaryButtonStyle())
+            .disabled(!canLoadTemplate)
 
             Button {
                 store.loadDemoWorkflow()
@@ -257,10 +255,17 @@ struct DataLibraryView: View {
                 Label("Demo-Pipe laden", systemImage: "wand.and.stars")
             }
             .buttonStyle(.borderedProminent)
-            .disabled(store.library == nil)
+            .disabled(!canLoadDemo)
         }
         .pipePanel(color: PipesStyle.outputTeal)
-        .disabled(store.workflowMode != .edit)
+    }
+
+    private var selectedTemplateTitle: String {
+        guard !selectedTemplateID.isEmpty,
+              let template = store.library?.templates.first(where: { $0.id == selectedTemplateID })
+        else { return "Keine Vorlage" }
+
+        return "\(template.id) · \(template.title)"
     }
 
     @ViewBuilder
@@ -397,33 +402,6 @@ struct DataLibraryView: View {
                 whatCounts: [:],
                 whoCounts: counts
             )
-        }
-    }
-}
-
-private struct BuildGuideRow: View {
-    let number: Int
-    let title: String
-    let detail: String
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: 9) {
-            Text("\(number)")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.white)
-                .frame(width: 24, height: 24)
-                .background(color, in: RoundedRectangle(cornerRadius: 7))
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.nwebTextPrimary)
-                Text(detail)
-                    .font(.caption2)
-                    .foregroundStyle(Color.nwebTextSecondary)
-                    .lineLimit(1)
-            }
         }
     }
 }

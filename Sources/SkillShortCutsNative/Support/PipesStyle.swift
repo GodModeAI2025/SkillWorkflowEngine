@@ -9,6 +9,9 @@ enum PipesStyle {
     static let debuggerBackground = Color.dynamic(light: 0xF8F5F1, dark: 0x211E1B)
     static let moduleFill = Color.dynamic(light: 0xFFFFFF, dark: 0x292D31)
     static let moduleHeader = Color.dynamic(light: 0xEEF2F6, dark: 0x343A40)
+    static let controlFill = Color.dynamic(light: 0xFFFFFF, dark: 0x3A3F44)
+    static let controlFillDisabled = Color.dynamic(light: 0xF0F1F2, dark: 0x303438)
+    static let controlTextDisabled = Color.dynamic(light: 0x625A55, dark: 0xC2CAD2)
     static let pipeLine = Color.dynamic(light: 0x7D8B99, dark: 0x92A1AF)
     static let portFill = Color.dynamic(light: 0x334455, dark: 0xD7DEE6)
 

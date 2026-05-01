@@ -56,6 +56,58 @@ struct InfoControlRow<Content: View>: View {
     }
 }
 
+private struct PipeControlSurfaceModifier: ViewModifier {
+    @Environment(\.isEnabled) private var environmentEnabled
+    let isEnabled: Bool
+
+    private var effectiveIsEnabled: Bool {
+        environmentEnabled && isEnabled
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .font(.nwebBody)
+            .foregroundStyle(effectiveIsEnabled ? Color.nwebTextPrimary : PipesStyle.controlTextDisabled)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, minHeight: 42, alignment: .leading)
+            .background(
+                effectiveIsEnabled ? PipesStyle.controlFill : PipesStyle.controlFillDisabled,
+                in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: NWEBTheme.smallRadius)
+                    .stroke(effectiveIsEnabled ? Color.nwebBorder : Color.nwebBorder.opacity(0.8))
+            )
+    }
+}
+
+struct PipeSecondaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.nwebBody.weight(.semibold))
+            .foregroundStyle(isEnabled ? Color.nwebAccent : PipesStyle.controlTextDisabled)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 34)
+            .background(
+                isEnabled ? Color.nwebAccent.opacity(0.14) : PipesStyle.controlFillDisabled,
+                in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: NWEBTheme.smallRadius)
+                    .stroke(isEnabled ? Color.nwebAccent.opacity(0.18) : Color.nwebBorder.opacity(0.8))
+            )
+            .opacity(configuration.isPressed ? 0.82 : 1)
+    }
+}
+
+extension View {
+    func pipeControlSurface(isEnabled: Bool = true) -> some View {
+        modifier(PipeControlSurfaceModifier(isEnabled: isEnabled))
+    }
+}
+
 struct LargeDisclosureGroup<Content: View>: View {
     let title: String
     var systemImage: String?
