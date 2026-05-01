@@ -542,8 +542,7 @@ struct InspectorRunView: View {
                 .pickerStyle(.segmented)
             }
 
-            TextField("OpenAI Modell", text: $store.openAIModel)
-            TextField("Anthropic Modell", text: $store.anthropicModel)
+            activeProviderFields
 
             InfoControlRow(
                 "Reasoning",
@@ -557,13 +556,66 @@ struct InspectorRunView: View {
                 .labelsHidden()
             }
 
-            SecureField(store.hasOpenAIKey ? "OpenAI Key gesetzt" : "OpenAI API Key", text: $store.openAIKey)
-            SecureField(store.hasAnthropicKey ? "Anthropic Key gesetzt" : "Anthropic API Key", text: $store.anthropicKey)
-
             Button("Provider-Einstellungen speichern") {
                 store.saveSettings()
             }
         }
+    }
+
+    @ViewBuilder
+    private var activeProviderFields: some View {
+        switch store.provider {
+        case .openAI:
+            ProviderFieldGroup(
+                title: "OpenAI",
+                color: ScratchStyle.motionBlue,
+                description: "Dieser Ablauf nutzt OpenAI für alle Blöcke ohne eigenes Modell-Override."
+            ) {
+                TextField("OpenAI Modell", text: $store.openAIModel)
+                SecureField(store.hasOpenAIKey ? "OpenAI Key gesetzt" : "OpenAI API Key", text: $store.openAIKey)
+            }
+        case .anthropic:
+            ProviderFieldGroup(
+                title: "Anthropic",
+                color: ScratchStyle.controlOrange,
+                description: "Dieser Ablauf nutzt Anthropic für alle Blöcke ohne eigenes Modell-Override."
+            ) {
+                TextField("Anthropic Modell", text: $store.anthropicModel)
+                SecureField(store.hasAnthropicKey ? "Anthropic Key gesetzt" : "Anthropic API Key", text: $store.anthropicKey)
+            }
+        }
+    }
+}
+
+private struct ProviderFieldGroup<Content: View>: View {
+    let title: String
+    let color: Color
+    let description: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 10, height: 10)
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.nwebTextPrimary)
+            }
+
+            Text(description)
+                .font(.caption)
+                .foregroundStyle(Color.nwebTextSecondary)
+
+            content
+        }
+        .padding(12)
+        .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: NWEBTheme.mediumRadius))
+        .overlay(
+            RoundedRectangle(cornerRadius: NWEBTheme.mediumRadius)
+                .stroke(color.opacity(0.28))
+        )
     }
 }
 
