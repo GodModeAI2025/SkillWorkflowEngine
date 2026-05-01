@@ -10,7 +10,7 @@ struct InspectorRunView: View {
             inspectorHeader
 
             HStack(spacing: 8) {
-                Picker("Inspector", selection: $selectedPane) {
+                Picker("Bühne", selection: $selectedPane) {
                     ForEach(InspectorPane.allCases) { pane in
                         Text(pane.title).tag(pane)
                     }
@@ -19,8 +19,8 @@ struct InspectorRunView: View {
                 .controlSize(.large)
 
                 InfoButton(
-                    title: "Inspector",
-                    message: "Wechselt zwischen Schritt-Konfiguration, Prompt-Vorschau, Ausführung/QS und AI-/Theme-Einstellungen."
+                    title: "Bühne",
+                    message: "Wechselt zwischen Block-Konfiguration, Prompt-Vorschau, Ausführung/QS und AI-/Theme-Einstellungen."
                 )
             }
             .padding(.horizontal, 14)
@@ -46,7 +46,7 @@ struct InspectorRunView: View {
                 .padding(14)
             }
         }
-        .background(Color.nwebSidebar)
+        .background(ScratchStyle.stageBackground)
         .onChange(of: selectedPane) { _, pane in
             if pane == .preview {
                 store.refreshPromptPreview()
@@ -62,7 +62,7 @@ struct InspectorRunView: View {
     private var inspectorHeader: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("Inspector")
+                Text("Bühne")
                     .font(.nwebTitle)
                     .foregroundStyle(Color.nwebTextPrimary)
                 Text(headerSubtitle)
@@ -81,20 +81,20 @@ struct InspectorRunView: View {
             }
         }
         .padding(14)
-        .background(Color.nwebSidebar)
+        .background(ScratchStyle.stageBackground)
     }
 
     private var headerSubtitle: String {
         if let step = store.selectedStep {
-            return step.title.isEmpty ? "Ausgewählter Berater" : step.title
+            return step.title.isEmpty ? "Ausgewählter Skill-Schritt" : step.title
         }
-        return "Berater auswählen oder WAS-Skill in das Team ziehen."
+        return "WAS-Block in den Skill-Prozess ziehen oder einen Schritt auswählen."
     }
 
     @ViewBuilder
     private var stepInspector: some View {
         if let step = store.selectedStep {
-            InspectorSection("Berater", systemImage: "person.text.rectangle") {
+            InspectorSection("Skill-Schritt", systemImage: "puzzlepiece") {
                 TextField("Titel", text: Binding(
                     get: { step.title },
                     set: { newValue in store.updateSelectedStep { $0.title = newValue } }
@@ -116,7 +116,7 @@ struct InspectorRunView: View {
 
                 InfoControlRow(
                     "WER",
-                    message: "Optionaler Denkstil und Beratercharakter für den Schritt. Ohne Persona läuft nur der gewählte WAS-Skill."
+                    message: "Optionale Perspektive und Denkstil für den Schritt. Ohne Persona läuft nur der gewählte WAS-Skill."
                 ) {
                     Picker("WER", selection: Binding(
                         get: { step.personaId ?? "" },
@@ -203,14 +203,14 @@ struct InspectorRunView: View {
             ContentUnavailableView(
                 "Kein Schritt ausgewählt",
                 systemImage: "sidebar.right",
-                description: Text("Ziehe zuerst einen WAS-Skill in das Beraterteam.")
+                description: Text("Ziehe zuerst einen WAS-Block in den Skill-Prozess.")
             )
         }
     }
 
     private var promptPreview: some View {
         InspectorSection("Prompt-Vorschau", systemImage: "text.magnifyingglass") {
-            Text("Zeigt, was aus WER + WAS + Auftrag + Daten für den ausgewählten Berater entsteht.")
+            Text("Zeigt, was aus WER + WAS + Auftrag + Daten für den ausgewählten Skill-Schritt entsteht.")
                 .font(.caption)
                 .foregroundStyle(Color.nwebTextSecondary)
 
@@ -594,11 +594,18 @@ struct InspectorSection<Content: View>: View {
             content
         }
         .padding(12)
-        .background(Color.nwebBackgroundPrimary, in: RoundedRectangle(cornerRadius: NWEBTheme.mediumRadius))
+        .background(Color.nwebBackgroundPrimary, in: RoundedRectangle(cornerRadius: ScratchStyle.panelRadius))
         .overlay(
-            RoundedRectangle(cornerRadius: NWEBTheme.mediumRadius)
+            RoundedRectangle(cornerRadius: ScratchStyle.panelRadius)
                 .stroke(Color.nwebBorder)
         )
+        .overlay(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 3)
+                .fill(Color.nwebAccent)
+                .frame(width: 6)
+                .padding(.vertical, 10)
+                .padding(.leading, 6)
+        }
         .shadow(color: Color.nwebTextPrimary.opacity(0.06), radius: 8, x: 0, y: 3)
     }
 }
@@ -725,10 +732,11 @@ struct RunStepRow: View {
             }
         }
         .padding(10)
-        .background(Color.nwebBackgroundSecondary, in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius))
-        .overlay(
-            RoundedRectangle(cornerRadius: NWEBTheme.smallRadius)
-                .stroke(Color.nwebBorder)
+        .padding(.leading, 8)
+        .scratchBlock(
+            color: ScratchStyle.statusColor(for: step.status),
+            selected: step.status == .needsReview,
+            active: step.status == .running || step.status == .needsReview
         )
     }
 }
@@ -803,12 +811,7 @@ struct StatusBadge: View {
     }
 
     private var color: Color {
-        switch status {
-        case .done, .approved: return .nwebSuccess
-        case .running, .needsReview: return .nwebWarning
-        case .failed: return .nwebError
-        case .idle, .pending: return .nwebTextSecondary
-        }
+        ScratchStyle.statusColor(for: status)
     }
 }
 

@@ -19,20 +19,20 @@ struct DataLibraryView: View {
                 .padding(14)
             }
         }
-        .background(Color.nwebSidebar)
+        .background(ScratchStyle.paletteBackground)
     }
 
     private var modeSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Workflow-Modus", systemImage: "slider.horizontal.3")
+            Label("Prozess-Modus", systemImage: "slider.horizontal.3")
                 .font(.nwebHeadline)
                 .foregroundStyle(Color.nwebAccent)
 
             InfoControlRow(
-                "Workflow-Modus",
+                "Prozess-Modus",
                 message: WorkflowMode.allCases.map { "\($0.label): \($0.description)" }.joined(separator: "\n\n")
             ) {
-                Picker("Workflow-Modus", selection: $store.workflowMode) {
+                Picker("Prozess-Modus", selection: $store.workflowMode) {
                     ForEach(WorkflowMode.allCases) { mode in
                         Text(mode.label).tag(mode)
                     }
@@ -47,7 +47,7 @@ struct DataLibraryView: View {
                 .font(.caption)
                 .foregroundStyle(Color.nwebTextSecondary)
         }
-        .nwebCard()
+        .scratchPanel()
     }
 
     private var workflowSection: some View {
@@ -160,7 +160,7 @@ struct DataLibraryView: View {
             .nwebInputBackground()
             .disabled(store.workflowMode == .audit)
         }
-        .nwebCard()
+        .scratchPanel()
     }
 
     private var sourceSection: some View {
@@ -186,19 +186,19 @@ struct DataLibraryView: View {
                     .foregroundStyle(Color.nwebTextSecondary)
             }
         }
-        .nwebCard()
+        .scratchPanel()
         .disabled(store.workflowMode != .edit)
     }
 
     private var templateSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Beratungsworkflow-Vorlagen", systemImage: "rectangle.stack")
+            Label("Skillworkflow-Vorlagen", systemImage: "rectangle.stack")
                 .font(.nwebHeadline)
                 .foregroundStyle(Color.nwebAccent)
 
             InfoControlRow(
                 "Vorlage",
-                message: "Wählt einen vorbereiteten Beratungsworkflow aus AIConsultant. Übernehmen füllt daraus das Beraterteam mit passenden WAS-Schritten."
+                message: "Wählt einen vorbereiteten Skillworkflow aus AIConsultant. Übernehmen füllt daraus die Prozesskette mit passenden WAS-Schritten."
             ) {
                 Picker("Vorlage", selection: $selectedTemplateID) {
                     Text("Keine Vorlage").tag("")
@@ -208,7 +208,7 @@ struct DataLibraryView: View {
                 }
             }
 
-            Button("Vorlage als Team übernehmen") {
+            Button("Vorlage als Prozess übernehmen") {
                 guard let template = store.library?.templates.first(where: { $0.id == selectedTemplateID }) else { return }
                 store.loadTemplate(template)
             }
@@ -217,18 +217,18 @@ struct DataLibraryView: View {
             Button {
                 store.loadDemoWorkflow()
             } label: {
-                Label("Demo-Team laden", systemImage: "wand.and.stars")
+                Label("Demo-Prozess laden", systemImage: "wand.and.stars")
             }
             .buttonStyle(.borderedProminent)
             .disabled(store.library == nil)
         }
-        .nwebCard()
+        .scratchPanel()
         .disabled(store.workflowMode != .edit)
     }
 
     private var librarySection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Bausteine", systemImage: "person.3.sequence")
+            Label("Block-Palette", systemImage: "square.grid.3x3")
                 .font(.nwebHeadline)
                 .foregroundStyle(Color.nwebAccent)
 
@@ -253,7 +253,7 @@ struct DataLibraryView: View {
                 }
             }
         }
-        .nwebCard()
+        .scratchPanel()
         .disabled(store.workflowMode != .edit)
     }
 
@@ -333,11 +333,8 @@ struct LibraryRow: View {
             }
         }
         .padding(10)
-        .background(Color.nwebBackgroundSecondary, in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius))
-        .overlay(
-            RoundedRectangle(cornerRadius: NWEBTheme.smallRadius)
-                .stroke(Color.nwebBorder)
-        )
+        .padding(.leading, 8)
+        .scratchBlock(color: accentColor)
         .onDrag {
             NSItemProvider(object: item.dragPayload as NSString)
         }
@@ -354,12 +351,6 @@ struct LibraryRow: View {
     }
 
     private var accentColor: Color {
-        switch item.kind {
-        case .personaSkill: return .nwebOrange
-        case .qualityGate: return .nwebSuccess
-        case .jobSkill: return .nwebAccent
-        case .consultingAgent: return .nwebAzure
-        case .rootSkill: return .nwebAccent
-        }
+        ScratchStyle.blockColor(for: item.kind)
     }
 }

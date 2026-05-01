@@ -87,7 +87,7 @@ struct PromptBuilder {
         1. Ergebnis / Artefakt
         2. Begründung und Annahmen
         3. Risiken / offene Punkte
-        4. Übergabe an den nächsten Berater
+        4. Übergabe an den nächsten Skill-Schritt
         5. Konkrete Datei-/Patch-Vorschläge, falls relevant
         """
 

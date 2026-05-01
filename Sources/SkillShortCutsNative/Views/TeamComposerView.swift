@@ -29,16 +29,16 @@ struct TeamComposerView: View {
                 }
             }
         }
-        .background(Color.nwebBackgroundPrimary)
+        .background(ScratchStyle.workspaceBackground)
     }
 
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 3) {
-                Text("Beraterteam")
+                Text("Skill-Prozess")
                     .font(.nwebTitle)
                     .foregroundStyle(Color.nwebTextPrimary)
-                Text("Kombiniere WER + WAS + Daten zu einem ausführbaren Beratungsworkflow.")
+                Text("Staple WAS-Blöcke, optionale WER-Perspektiven, Rollen und QS zu einem ausführbaren Prozess.")
                     .font(.caption)
                     .foregroundStyle(Color.nwebTextSecondary)
             }
@@ -51,42 +51,42 @@ struct TeamComposerView: View {
                 .background(Color.nwebOrange.opacity(0.12), in: Capsule())
         }
         .padding(16)
-        .background(Color.nwebBackgroundPrimary)
+        .background(ScratchStyle.stageBackground)
     }
 
     private var emptyDropZone: some View {
         VStack(spacing: 12) {
-            Image(systemName: "person.3.sequence")
+            Image(systemName: "puzzlepiece")
                 .font(.system(size: 36))
-                .foregroundStyle(Color.nwebOrange)
-            Text("WAS-Skill hierher ziehen")
+                .foregroundStyle(ScratchStyle.looksPurple)
+            Text("WAS-Block hierher ziehen")
                 .font(.headline)
                 .foregroundStyle(Color.nwebTextPrimary)
-            Text("Danach WER-Persona auf den Berater-Slot ziehen.")
+            Text("Danach optional WER-Persona, Rolle und QS am Schritt konfigurieren.")
                 .font(.caption)
                 .foregroundStyle(Color.nwebTextSecondary)
         }
         .frame(maxWidth: .infinity, minHeight: 260)
-        .background(isDropTarget ? Color.nwebOrange.opacity(0.14) : Color.nwebBackgroundSecondary, in: RoundedRectangle(cornerRadius: NWEBTheme.mediumRadius))
+        .background(isDropTarget ? ScratchStyle.looksPurple.opacity(0.16) : Color.nwebBackgroundPrimary, in: RoundedRectangle(cornerRadius: ScratchStyle.panelRadius))
         .overlay(
-            RoundedRectangle(cornerRadius: NWEBTheme.mediumRadius)
+            RoundedRectangle(cornerRadius: ScratchStyle.panelRadius)
                 .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
-                .foregroundStyle(isDropTarget ? Color.nwebOrange : Color.nwebBorder)
+                .foregroundStyle(isDropTarget ? ScratchStyle.looksPurple : Color.nwebBorder)
         )
     }
 
     private var addDropZone: some View {
         HStack {
             Image(systemName: "plus.circle")
-            Text("Weiteren WAS-Skill hier ablegen")
+            Text("Weiteren WAS-Block hier ablegen")
         }
         .font(.caption.weight(.semibold))
         .foregroundStyle(Color.nwebTextSecondary)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
-        .background(Color.nwebBackgroundSecondary, in: RoundedRectangle(cornerRadius: NWEBTheme.mediumRadius))
+        .background(Color.nwebBackgroundPrimary, in: RoundedRectangle(cornerRadius: ScratchStyle.blockRadius))
         .overlay(
-            RoundedRectangle(cornerRadius: NWEBTheme.mediumRadius)
+            RoundedRectangle(cornerRadius: ScratchStyle.blockRadius)
                 .stroke(Color.nwebBorder)
         )
     }
@@ -105,6 +105,7 @@ struct ConsultantCard: View {
         let runState = store.runSteps.first { $0.id == step.id }
         let isRunning = runState?.status == .running
         let isWaitingForReview = runState?.status == .needsReview
+        let blockColor = ScratchStyle.blockColor(for: step.role)
         Button {
             store.selectStep(step.id)
         } label: {
@@ -113,8 +114,8 @@ struct ConsultantCard: View {
                     Text("\(index + 1)")
                         .font(.caption.weight(.bold))
                         .foregroundStyle(.white)
-                        .frame(width: 26, height: 26)
-                        .background(Color.nwebAccent, in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius))
+                        .frame(width: 30, height: 30)
+                        .background(blockColor, in: RoundedRectangle(cornerRadius: 9))
 
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 7) {
@@ -173,14 +174,30 @@ struct ConsultantCard: View {
                 }
 
                 HStack(spacing: 8) {
-                    Chip(title: "WAS", value: skill?.displayName ?? "Skill fehlt", systemImage: "briefcase")
-                    Chip(title: "WER", value: persona?.displayName ?? "Persona optional", systemImage: "person.crop.circle")
+                    Chip(
+                        title: "WAS",
+                        value: skill?.displayName ?? "Skill fehlt",
+                        systemImage: "briefcase",
+                        color: skill.map { ScratchStyle.blockColor(for: $0.kind) } ?? ScratchStyle.looksPurple
+                    )
+                    Chip(
+                        title: "WER",
+                        value: persona?.displayName ?? "Persona optional",
+                        systemImage: "person.crop.circle",
+                        color: ScratchStyle.variablesOrange
+                    )
                 }
             }
             .padding(14)
+            .padding(.leading, 8)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .scratchBlock(
+            color: blockColor,
+            selected: store.selectedStepID == step.id || isWaitingForReview,
+            active: isRunning || isWaitingForReview || isDropTarget
+        )
         .background(background)
         .overlay(cardBorder(isWaitingForReview: isWaitingForReview))
         .shadow(
@@ -217,17 +234,17 @@ struct ConsultantCard: View {
 
     private var background: some ShapeStyle {
         if isDropTarget {
-            return Color.nwebOrange.opacity(0.13)
+            return ScratchStyle.looksPurple.opacity(0.13)
         }
-        return Color.nwebBackgroundPrimary
+        return Color.clear
     }
 
     private func cardBorder(isWaitingForReview: Bool) -> some View {
-        RoundedRectangle(cornerRadius: 12)
+        RoundedRectangle(cornerRadius: ScratchStyle.blockRadius)
             .stroke(borderColor(isWaitingForReview: isWaitingForReview), lineWidth: borderWidth(isWaitingForReview: isWaitingForReview))
             .overlay {
                 if isWaitingForReview {
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: ScratchStyle.blockRadius)
                         .stroke(Color.nwebOrange.opacity(glowPulse ? 0.75 : 0.28), lineWidth: glowPulse ? 5 : 2)
                         .blur(radius: glowPulse ? 7 : 3)
                 }
@@ -275,11 +292,12 @@ struct Chip: View {
     var title: String
     var value: String
     var systemImage: String
+    var color: Color
 
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: systemImage)
-                .foregroundStyle(title == "WER" ? Color.nwebOrange : Color.nwebAccent)
+                .foregroundStyle(color)
             Text(title)
                 .foregroundStyle(Color.nwebTextSecondary)
             Text(value)
@@ -289,8 +307,8 @@ struct Chip: View {
         .font(.caption)
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
-        .background(Color.nwebBackgroundSecondary, in: Capsule())
-        .overlay(Capsule().stroke(Color.nwebBorder))
+        .background(color.opacity(0.10), in: Capsule())
+        .overlay(Capsule().stroke(color.opacity(0.35)))
     }
 }
 

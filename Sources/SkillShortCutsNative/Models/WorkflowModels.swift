@@ -41,13 +41,13 @@ enum ConsultantRole: String, Codable, CaseIterable, Identifiable {
     var detailedDescription: String {
         switch self {
         case .lead:
-            return "LEAD bedeutet: Dieser Berater ist primär verantwortlich für den Schritt. Er strukturiert das Ergebnis, trifft Annahmen transparent und liefert den Hauptoutput."
+            return "LEAD bedeutet: Dieser Skill-Schritt ist primär verantwortlich. Er strukturiert das Ergebnis, trifft Annahmen transparent und liefert den Hauptoutput."
         case .support:
-            return "SUPPORT bedeutet: Dieser Berater ergänzt einen vorherigen oder führenden Schritt. Er vertieft Teilaspekte, liefert Material zu oder bereitet Übergaben vor."
+            return "SUPPORT bedeutet: Dieser Skill-Schritt ergänzt einen vorherigen oder führenden Schritt. Er vertieft Teilaspekte, liefert Material zu oder bereitet Übergaben vor."
         case .challenge:
-            return "CHALLENGE bedeutet: Dieser Berater prüft kritisch, sucht Lücken, Risiken, Widersprüche und Qualitätsprobleme."
+            return "CHALLENGE bedeutet: Dieser Skill-Schritt prüft kritisch, sucht Lücken, Risiken, Widersprüche und Qualitätsprobleme."
         case .independent:
-            return "SECOND OPINION bedeutet: Dieser Berater erstellt bewusst eine unabhängige Zweitmeinung, ohne die vorherige Sicht einfach zu übernehmen."
+            return "SECOND OPINION bedeutet: Dieser Skill-Schritt erstellt bewusst eine unabhängige Zweitmeinung, ohne die vorherige Sicht einfach zu übernehmen."
         case .lector:
             return "LEKTORAT bedeutet: Dieser Schritt vereinheitlicht Sprache, Struktur, Tonalität und Lesbarkeit, ohne fachliche Aussagen unnötig zu verändern."
         case .finalizer:
@@ -191,7 +191,7 @@ struct ConsultantStep: Identifiable, Codable, Hashable {
 
 struct ShortcutWorkflow: Identifiable, Codable, Hashable {
     var id: String = "wf-\(UUID().uuidString)"
-    var name: String = "Neuer Beratungsworkflow"
+    var name: String = "Neuer Skill-Prozess"
     var input: WorkflowInput = WorkflowInput()
     var provider: AIProvider = .openAI
     var steps: [ConsultantStep] = []
