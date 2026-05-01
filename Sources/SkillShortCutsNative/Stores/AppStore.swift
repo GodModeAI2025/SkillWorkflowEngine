@@ -448,8 +448,22 @@ final class AppStore: ObservableObject {
             workflow: workflow,
             folderContext: gatekeeperFolderContext,
             provider: provider,
-            hasProviderKey: provider == .openAI ? hasOpenAIKey : hasAnthropicKey
+            hasProviderKey: provider == .openAI ? hasOpenAIKey : hasAnthropicKey,
+            hasOpenAIKey: hasOpenAIKey,
+            hasAnthropicKey: hasAnthropicKey,
+            library: library,
+            workDirectoryPath: workDirectoryPath,
+            openAIModel: openAIModel,
+            anthropicModel: anthropicModel
         )
+        if gatekeeperReport.overall == .critical {
+            let firstCritical = gatekeeperReport.issues.first { $0.severity == .critical }
+            errorMessage = firstCritical.map { "\($0.title): \($0.detail)" } ?? gatekeeperReport.summary
+            runLog = [gatekeeperReport.summary] + gatekeeperReport.issues.map {
+                "\($0.severity.rawValue): \($0.title) - \($0.detail)"
+            }
+            return
+        }
         do {
             currentRunDirectory = try workspaceWriter.prepareRunDirectory(
                 workDirectoryPath: workDirectoryPath,
@@ -510,7 +524,13 @@ final class AppStore: ObservableObject {
             workflow: workflow,
             folderContext: folderContext,
             provider: provider,
-            hasProviderKey: provider == .openAI ? hasOpenAIKey : hasAnthropicKey
+            hasProviderKey: provider == .openAI ? hasOpenAIKey : hasAnthropicKey,
+            hasOpenAIKey: hasOpenAIKey,
+            hasAnthropicKey: hasAnthropicKey,
+            library: library,
+            workDirectoryPath: workDirectoryPath,
+            openAIModel: openAIModel,
+            anthropicModel: anthropicModel
         )
     }
 

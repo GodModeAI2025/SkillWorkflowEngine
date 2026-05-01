@@ -13,6 +13,11 @@ let package = Package(
         .executableTarget(
             name: "SkillShortCutsNative",
             path: "Sources/SkillShortCutsNative"
+        ),
+        .testTarget(
+            name: "SkillShortCutsNativeTests",
+            dependencies: ["SkillShortCutsNative"],
+            path: "Tests/SkillShortCutsNativeTests"
         )
     ]
 )
