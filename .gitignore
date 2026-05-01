@@ -1,0 +1,10 @@
+node_modules/
+.build/
+dist/
+.DS_Store
+runs/*
+!runs/.gitkeep
+workflows/*
+!workflows/.gitkeep
+data/settings.json
+data/AIConsultant/
