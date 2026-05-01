@@ -284,6 +284,34 @@
       font-size: 0.95rem;
     }
 
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+
+    .detail-panel {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.35rem;
+    }
+
+    .detail-panel h3 {
+      font-size: 1rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .detail-panel p,
+    .detail-panel li {
+      color: var(--text-secondary);
+      font-size: 0.94rem;
+    }
+
+    .detail-panel ul {
+      margin-left: 1.1rem;
+    }
+
     .example-flow {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
@@ -546,6 +574,27 @@
 
   <section>
     <div class="container">
+      <h2 class="section-title">Was passiert in der App?</h2>
+      <p class="section-subtitle">Die UI ist als Arbeitsflaeche fuer ein kontrolliertes Beraterteam aufgebaut</p>
+      <div class="detail-grid">
+        <div class="detail-panel">
+          <h3>Links: Intent</h3>
+          <p>Der Nutzer waehlt Arbeitsverzeichnis, Eingabeordner, Textkontext und AIConsultant-Bibliothek. Der Auftrag wird strukturiert erfasst, damit Ziel, Kontext, Ergebnis und Kriterien stabil bleiben.</p>
+        </div>
+        <div class="detail-panel">
+          <h3>Mitte: Operate</h3>
+          <p>Skills, Personas, Rollen und QS-Modi werden per Drag-and-drop zu einem Skillworkflow kombiniert. Jeder Schritt kann Lead, Support, Challenge, Second Opinion, Lektorat oder Finalizer sein.</p>
+        </div>
+        <div class="detail-panel">
+          <h3>Rechts: Check</h3>
+          <p>Der Inspector zeigt Prompt-Vorschau, Run-Status, Ergebnisse, Review, Redo, Debug-Dateien, Gatekeeper-Bericht und Audit-Spur fuer den ausgewaehlten Schritt.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
       <h2 class="section-title">Features</h2>
       <p class="section-subtitle">Die App reduziert Freitext-Drift und macht jeden Arbeitsschritt nachvollziehbar</p>
       <div class="features-grid">
@@ -577,7 +626,32 @@
         <div class="feature-card">
           <div class="feature-icon fi-orange">&#128193;</div>
           <h3>Workspace, Audit &amp; Debug</h3>
-          <p>Jeder Lauf erhaelt ein frisches Verzeichnis; Debug zeigt je Schritt Prompts, Daten und Output.</p>
+          <p>Jeder Lauf erhaelt ein frisches Verzeichnis; Debug zeigt Prompts, Daten, Output und Review, Audit v2 schreibt eine CHAIN.jsonl.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <h2 class="section-title">Run-Steuerung</h2>
+      <p class="section-subtitle">Start, Freigabe, Redo und Abbruch folgen demselben sichtbaren Prozessmodell</p>
+      <div class="detail-grid">
+        <div class="detail-panel">
+          <h3>Start</h3>
+          <p>Der Play-Button erzeugt einen neuen Run, schreibt Run-Plan und Gatekeeper-Report und legt ein frisches Unterverzeichnis im zentralen Arbeitsverzeichnis an.</p>
+        </div>
+        <div class="detail-panel">
+          <h3>Warten auf Freigabe</h3>
+          <p>Ein manueller QS-Schritt wird im Workflow hervorgehoben. Der Play-Button wirkt dann wie "Freigeben und weiter".</p>
+        </div>
+        <div class="detail-panel">
+          <h3>Redo mit Feedback</h3>
+          <p>Feedback fuehrt denselben Schritt erneut aus. Eingangsmaterial, vorheriges Ergebnis und Korrekturprompt gehen in den neuen Versuch; nur der letzte Stand wird current.</p>
+        </div>
+        <div class="detail-panel">
+          <h3>Abbruch</h3>
+          <p>Der Abbruch-Button beendet den aktuellen Run, schreibt WORKFLOW_ABORTED in die Audit-Chain und setzt den inhaltlichen Workflow-Zustand zurueck.</p>
         </div>
       </div>
     </div>
@@ -671,6 +745,24 @@
         <li>audit-summary.md</li>
         <li>signature-placeholder.txt</li>
       </ul>
+      <div class="detail-grid" style="margin-top: 1.5rem;">
+        <div class="detail-panel">
+          <h3>Genesis</h3>
+          <p>Der erste Chain-Eintrag versiegelt Workflow, Run-Plan, verwendete Skills, Personas, Provider-Konfiguration und Gatekeeper-Ergebnis.</p>
+        </div>
+        <div class="detail-panel">
+          <h3>Events</h3>
+          <p>STEP_STARTED, PROMPT_BUILT, LLM_REQUEST_SENT, ARTIFACT_WRITTEN, REVIEW_REQUIRED, REVIEW_APPROVED und STEP_COMPLETED dokumentieren die Arbeitsschritte.</p>
+        </div>
+        <div class="detail-panel">
+          <h3>Seal oder Abort</h3>
+          <p>Ein fertiger Run endet mit WORKFLOW_SEALED. Ein abgebrochener Run endet mit WORKFLOW_ABORTED und bleibt trotzdem pruefbar.</p>
+        </div>
+      </div>
+      <div class="code-block" style="margin-top: 1.5rem;">
+        <span class="comment"># Audit-Chain ohne App pruefen</span><br>
+        <span class="cmd">python3</span> script/verify_audit.py &lt;run-dir&gt;/CHAIN.jsonl --report
+      </div>
     </div>
   </section>
 

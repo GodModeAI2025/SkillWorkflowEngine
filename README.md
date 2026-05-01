@@ -14,6 +14,21 @@ Intent                  Operate                         Check
 Daten + Auftrag  ->     WER + WAS + Rolle + QS    ->    Review, Redo, Audit
 ```
 
+## Was in dieser Version steckt
+
+- native macOS App statt Web-Prototyp
+- echte Ausfuehrung ueber OpenAI oder Anthropic API-Key
+- Import echter AIConsultant-Skills, Personas, Agenten und Standardworkflows
+- Drag-and-drop Beraterteam aus Skill (`WAS`), Persona (`WER`), Rolle und QS-Modus
+- strukturierte Eingabe fuer Ziel, Kontext, Ergebnis und Bewertungskriterien
+- manuelle Freigabe, Auto-QS, Redo mit Feedback und sichtbarer Wartezustand im Workflow
+- dynamischer Play-Button: Startet den Workflow oder gibt den wartenden Schritt frei
+- Abbruch/Reset fuer einen laufenden Workflow
+- zentral konfigurierbares Arbeitsverzeichnis mit frischem Unterordner je Run
+- Debug-Modus fuer Input, Systemprompt, Userprompt, Output, Review und QS je Schritt
+- Audit v2 mit `CHAIN.jsonl`, Genesis, Event-Hashes, Seal/Abort und Standalone-Verifier
+- NWEB-Farbsystem und App-Icon fuer die native App
+
 ## Warum
 
 Freie KI-Chats sind flexibel, aber schwer kontrollierbar:
@@ -36,6 +51,25 @@ Arbeitsverzeichnis.
 | Links: Auftrag & Daten | Arbeitsverzeichnis, Eingabeordner, AIConsultant-Bibliothek, strukturierter Auftrag |
 | Mitte: Beraterteam | Drag-and-drop Workflow aus Skills, Personas, Rollen und QS-Modi |
 | Rechts: Inspector | Prompt-Vorschau, Run-Status, Gatekeeper, Debug, Ergebnisse, Review und Nachweisdateien |
+
+## Typischer Ablauf
+
+1. Arbeitsverzeichnis waehlen. Dort legt die App pro Durchlauf ein neues
+   Unterverzeichnis an.
+2. Eingabedaten hinterlegen: Ordner, Datei- oder Textkontext.
+3. Auftrag strukturiert erfassen: Ziel, Kontext, gewuenschtes Ergebnis,
+   Kriterien und optionaler Zusatz.
+4. AIConsultant-Bibliothek laden oder vorhandene Workflows nutzen.
+5. Beraterteam zusammenstellen: pro Schritt Skill, Persona, Rolle, Modell und
+   QS-Modus festlegen.
+6. Workflow starten. Die App erzeugt Run-Plan, Gatekeeper-Report, Prompts und
+   Arbeitsverzeichnis.
+7. Ergebnisse je Schritt pruefen. Bei manueller QS wartet der Schritt sichtbar
+   auf Freigabe oder Feedback.
+8. Bei Feedback laeuft nur der betroffene Schritt erneut. Das neue Ergebnis wird
+   `current.md`; alte Versuche bleiben unter `attempts/`.
+9. Nach Abschluss wird der Run versiegelt und kann mit dem Standalone-Verifier
+   geprueft werden.
 
 ## Intent / Operate / Check
 
@@ -74,6 +108,20 @@ Nach jedem relevanten Schritt kann der Nutzer:
 - im Debug-Modus Eingangsdateien, Prompts, Outputs, QS und Reviews je Schritt einsehen
 - die Gatekeeper- und Auditdaten einsehen
 
+### Toolbar und Run-Steuerung
+
+Der Play-Button oben rechts ist kontextsensitiv:
+
+- vor dem Lauf startet er den Workflow
+- waehrend eines laufenden Schritts zeigt die Prozessliste den aktiven Schritt
+  mit Spinner
+- wenn ein Schritt auf manuelle Freigabe wartet, wirkt der Play-Button wie
+  `Freigeben und weiter`
+- bei Redo-Feedback wird nur der wartende Schritt mit Eingangsmaterial,
+  vorherigem Ergebnis und Korrekturprompt erneut ausgefuehrt
+- der Abbruch-Button beendet den aktuellen Workflow, schreibt `WORKFLOW_ABORTED`
+  in die Chain und setzt den inhaltlichen Run-Zustand zurueck
+
 ## Rollen
 
 Rollen sind prompt-relevant. Sie sind nicht nur UI-Labels.
@@ -86,6 +134,44 @@ Rollen sind prompt-relevant. Sie sind nicht nur UI-Labels.
 | `SECOND OPINION` | Erstellt eine unabhaengige Zweitmeinung auf Basis von Input und Vorartefakten. |
 | `LEKTORAT` | Vereinheitlicht Sprache, Struktur, Tonalitaet und Lesbarkeit. |
 | `FINALIZER` | Erstellt das finale Ergebnis aus den freigegebenen aktuellen Artefakten. |
+
+### Warum mehrere Rollen in Sequenz Sinn machen
+
+Ein Workflow ist nicht nur eine lineare To-do-Liste. Er modelliert ein
+Beratungsgremium:
+
+- Ein `LEAD` erstellt die erste belastbare Fassung.
+- Ein `SUPPORT` ergaenzt mit einer bestimmten Fachperspektive, etwa Security,
+  Betrieb, Einkauf oder Kommunikation.
+- Ein zweiter `SUPPORT` direkt danach kann sinnvoll sein, wenn zwei verschiedene
+  Disziplinen zuliefern sollen, ohne die Verantwortung des Lead zu uebernehmen.
+- Eine `CHALLENGE`-Rolle sucht anschliessend bewusst Luecken und Widersprueche.
+- `SECOND OPINION` eignet sich, wenn eine unabhaengige Alternativsicht entstehen
+  soll, statt nur den bestehenden Text zu korrigieren.
+- Ein spaeterer `LEAD` kann sinnvoll sein, wenn ein neuer Ergebnisabschnitt
+  beginnt, etwa von Analyse zu Entscheidungsgrundlage oder von Review zu
+  Praesentation.
+
+Ergebnisse werden nicht nur als "letzter Chat-Text" behandelt. Jeder Schritt hat
+ein eigenes Verzeichnis und einen gueltigen aktuellen Stand. Nachfolgende Skills
+bekommen die freigegebenen aktuellen Artefakte vorheriger Schritte gezielt als
+Kontext.
+
+## Beispiel: Software-Lifecycle-Review
+
+Ein moeglicher Workflow fuer einen Quellcode-Ordner:
+
+| Schritt | Rolle | Skill/Persona | Ergebnis |
+|---|---|---|---|
+| 1 | `LEAD` | Architektur Review als Enterprise Architect | Risiken, Modularitaet, Verantwortlichkeiten, ADR-Bedarf |
+| 2 | `SUPPORT` | Security Review als Security Architect | Security-Befunde, Token-/Secret-Risiken, Schutzmassnahmen |
+| 3 | `CHALLENGE` | Kritische Pruefung als unabhaengiger Reviewer | Widersprueche, unklare Evidenz, offene Annahmen |
+| 4 | `LEKTORAT` | Redaktionelle Verdichtung | Lesbare, konsistente Review-Fassung |
+| 5 | `FINALIZER` | PR-/ADR-Schreiber | PR-Beschreibung, ADR-Vorschlaege und naechste Umsetzungsschritte |
+
+Jeder Schritt kann manuell oder automatisch geprueft werden. Wird bei Schritt 4
+Feedback gegeben, ersetzt nur Schritt 4 seinen gueltigen Stand; die vorherigen
+Schritte bleiben als Herkunft erhalten.
 
 ## Workflow-Modi
 
@@ -221,12 +307,33 @@ loggen die Run-Schritte unter anderem:
 Ein abgeschlossener Run wird mit `WORKFLOW_SEALED` versiegelt. Ein abgebrochener
 Run wird mit `WORKFLOW_ABORTED` beendet, bevor die UI den Zustand zuruecksetzt.
 
+| Event | Bedeutung |
+|---|---|
+| `GENESIS` | Startzustand mit Workflow, Run-Plan, Skills, Personas, Provider und Gatekeeper-Hashes |
+| `GATEKEEPER_RUN` | Vorpruefung vor der Ausfuehrung |
+| `STEP_STARTED` | Schritt wurde gestartet und bekommt ein Arbeitsverzeichnis |
+| `PROMPT_BUILT` | System- und Userprompt wurden erzeugt und gehasht |
+| `LLM_REQUEST_SENT` | Ein echter Provider-Call wurde vorbereitet/abgesetzt |
+| `ARTIFACT_WRITTEN` | Output, Review, QS oder State-Datei wurde geschrieben |
+| `REVIEW_REQUIRED` | Schritt wartet auf manuelle Freigabe oder Feedback |
+| `REVIEW_APPROVED` | Nutzer hat den aktuellen Stand freigegeben |
+| `REVIEW_REDO_REQUESTED` | Nutzerfeedback erzeugt einen neuen Versuch fuer denselben Schritt |
+| `STEP_COMPLETED` | Schritt ist abgeschlossen und sein `current.md` ist der gueltige Stand |
+| `WORKFLOW_SEALED` | Run wurde abgeschlossen und semantisch versiegelt |
+| `WORKFLOW_ABORTED` | Run wurde abgebrochen und der UI-Zustand zurueckgesetzt |
+
 ### Standalone-Verifier
 
 Die Chain kann ohne App und ohne externe Dependencies geprueft werden:
 
 ```bash
 python3 script/verify_audit.py <run-dir>/CHAIN.jsonl --report
+```
+
+Strenger Modus fuer abgeschlossene Runs:
+
+```bash
+python3 script/verify_audit.py <run-dir>/CHAIN.jsonl --report --require-seal
 ```
 
 Der Verifier prueft:
@@ -238,10 +345,21 @@ Der Verifier prueft:
 - terminalen Seal/Abort
 - referenzierte Artefakt-Hashes fuer bekannte Pfad-/Hash-Paare
 
+### Grenzen des Nachweises
+
 Das ist noch keine produktive Signatur- oder Trust-Infrastruktur. Die Chain
 beweist Integritaet und Manipulationserkennung, nicht fachliche Korrektheit.
 Sie schafft aber eine stabile Struktur, um spaeter Pakete zu signieren, extern zu
 verankern oder in Governance-Prozesse zu uebergeben.
+
+Konkret bedeutet das:
+
+- Die Chain zeigt, ob die dokumentierte Geschichte nachtraeglich veraendert
+  wurde.
+- Sie beweist nicht, dass ein LLM-Ergebnis fachlich richtig ist.
+- Sie ersetzt keine Berechtigungs-, Signatur- oder Archivierungsstrategie.
+- Sie ist ein lokaler, menschenlesbarer Audit-Pfad, der spaeter signiert oder
+  extern verankert werden kann.
 
 ## AIConsultant-Import
 
