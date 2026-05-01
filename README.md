@@ -4,10 +4,11 @@ Native macOS App für kontrollierte, ausführbare und nachvollziehbare
 KI-Skillworkflows. Das Repository heißt aktuell noch `SkillWorkflowEngine`, das
 gebaute App-Bundle und das SwiftPM-Produkt heißen `SkillShortCuts`.
 
-SkillShortCuts ist im Kern ein Skillworkflow-Player: Links werden Daten, Ordner
-und ein strukturierter Auftrag eingebracht. In der Mitte wird ein Beraterteam aus
-`WER` und `WAS` zusammengestellt. Rechts wird geprüft, ausgeführt, freigegeben
-oder mit Feedback erneut gelaufen.
+SkillShortCuts ist im Kern ein Player für Prozesse, die aus mehreren Skills
+bestehen: Links werden Daten, Ordner und ein strukturierter Auftrag eingebracht.
+In der Mitte wird eine Skill-Prozesskette aus `WAS`, optionalem `WER`, Rolle und
+QS zusammengestellt. Rechts wird geprüft, ausgeführt, freigegeben oder mit
+Feedback erneut gelaufen.
 
 ```text
 Intent                  Operate                         Check
@@ -19,7 +20,7 @@ Daten + Auftrag  ->     WER + WAS + Rolle + QS    ->    Review, Redo, Audit
 - native macOS App statt Web-Prototyp
 - echte Ausführung über OpenAI oder Anthropic API-Key
 - Import echter AIConsultant-Skills, Personas, Agenten und Standardworkflows
-- Drag-and-drop Beraterteam aus Skill (`WAS`), Persona (`WER`), Rolle und QS-Modus
+- Drag-and-drop Prozesskette aus Skill (`WAS`), Persona (`WER`), Rolle und QS-Modus
 - strukturierte Eingabe für Ziel, Kontext, Ergebnis und Bewertungskriterien
 - manuelle Freigabe, Auto-QS, Redo mit Feedback und sichtbarer Wartezustand im Workflow
 - dynamischer Play-Button: Startet den Workflow oder gibt den wartenden Schritt frei
@@ -49,7 +50,7 @@ Arbeitsverzeichnis.
 | Bereich | Zweck |
 |---|---|
 | Links: Auftrag & Daten | Arbeitsverzeichnis, Eingabeordner, AIConsultant-Bibliothek, strukturierter Auftrag |
-| Mitte: Beraterteam | Drag-and-drop Workflow aus Skills, Personas, Rollen und QS-Modi |
+| Mitte: Skill-Prozess | Drag-and-drop Workflow aus Skills, Personas, Rollen und QS-Modi |
 | Rechts: Inspector | Prompt-Vorschau, Run-Status, Gatekeeper, Debug, Ergebnisse, Review und Nachweisdateien |
 
 ## Typischer Ablauf
@@ -60,7 +61,7 @@ Arbeitsverzeichnis.
 3. Auftrag strukturiert erfassen: Ziel, Kontext, gewünschtes Ergebnis,
    Kriterien und optionaler Zusatz.
 4. AIConsultant-Bibliothek laden oder vorhandene Workflows nutzen.
-5. Beraterteam zusammenstellen: pro Schritt Skill, Persona, Rolle, Modell und
+5. Skill-Prozess zusammenstellen: pro Schritt Skill, Persona, Rolle, Modell und
    QS-Modus festlegen.
 6. Workflow starten. Die App erzeugt Run-Plan, Gatekeeper-Report, Prompts und
    Arbeitsverzeichnis.
@@ -137,8 +138,8 @@ Rollen sind prompt-relevant. Sie sind nicht nur UI-Labels.
 
 ### Warum mehrere Rollen in Sequenz Sinn machen
 
-Ein Workflow ist nicht nur eine lineare To-do-Liste. Er modelliert ein
-Beratungsgremium:
+Ein Workflow ist nicht nur eine lineare To-do-Liste. Er modelliert einen
+mehrstufigen Prozess, in dem jeder Skill-Schritt eine klare Funktion hat:
 
 - Ein `LEAD` erstellt die erste belastbare Fassung.
 - Ein `SUPPORT` ergänzt mit einer bestimmten Fachperspektive, etwa Security,
@@ -422,7 +423,7 @@ Sources/SkillShortCutsNative/
   App/              App entrypoint und AppDelegate
   Models/           Workflow-, Run-, Gatekeeper- und Library-Modelle
   Stores/           AppStore mit Zustand und Run-Orchestrierung
-  Views/            Auftrag, Team Composer, Inspector, Run-UI
+  Views/            Auftrag, Workflow Composer, Inspector, Run-UI
   Services/         LLM-Client, PromptBuilder, Gatekeeper, WorkspaceWriter
   Support/          Theme, Interaction Helpers, String Helpers
 script/             build_and_run.sh
