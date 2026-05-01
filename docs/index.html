@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SkillWorkflowEngine</title>
+  <style>
+    :root {
+      --accent: #000099;
+      --accent-light: #4D4DFF;
+      --orange: #FE8F11;
+      --bg-primary: #FFFFFF;
+      --bg-secondary: #F9F7F5;
+      --bg-sidebar: #F4F1EE;
+      --text-primary: #322A26;
+      --text-secondary: #625A55;
+      --text-tertiary: #B0A9A3;
+      --success: #84C041;
+      --border: rgba(226, 195, 154, 0.4);
+      --azure: #1195EB;
+      --radius: 16px;
+      --radius-sm: 6px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --accent: #4D4DFF;
+        --accent-light: #7A7AFF;
+        --bg-primary: #1A1614;
+        --bg-secondary: #252120;
+        --bg-sidebar: #201C1A;
+        --text-primary: #F9F7F5;
+        --text-secondary: #B0A9A3;
+        --text-tertiary: #625A55;
+        --border: #3D3530;
+      }
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0, 0, 153, 0.08) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 50% at 80% 100%, rgba(254, 143, 17, 0.06) 0%, transparent 70%),
+        var(--bg-primary);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .hero {
+        background:
+          radial-gradient(ellipse 80% 60% at 50% 0%, rgba(77, 77, 255, 0.1) 0%, transparent 70%),
+          radial-gradient(ellipse 60% 50% at 80% 100%, rgba(254, 143, 17, 0.08) 0%, transparent 70%),
+          var(--bg-primary);
+      }
+    }
+
+    .hero-icon {
+      width: 88px;
+      height: 88px;
+      background: linear-gradient(135deg, var(--accent), var(--orange));
+      border-radius: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 2rem;
+      box-shadow: 0 8px 32px rgba(0, 0, 153, 0.15);
+    }
+
+    .hero-icon svg {
+      width: 48px;
+      height: 48px;
+      fill: #fff;
+    }
+
+    h1 {
+      font-size: clamp(2.2rem, 5vw, 3.5rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.75rem;
+    }
+
+    h1 span {
+      background: linear-gradient(135deg, var(--accent), var(--orange));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      font-size: clamp(1.05rem, 2.5vw, 1.3rem);
+      color: var(--text-secondary);
+      max-width: 640px;
+      margin-bottom: 2.5rem;
+    }
+
+    .cta-group {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.85rem 1.75rem;
+      border-radius: var(--radius-sm);
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(0, 0, 153, 0.25);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 6px 20px rgba(0, 0, 153, 0.35);
+    }
+
+    .btn-secondary {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .btn svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+
+    section {
+      padding: 5rem 2rem;
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+
+    .section-title {
+      font-size: 1.6rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .section-subtitle {
+      text-align: center;
+      color: var(--text-secondary);
+      margin-bottom: 3rem;
+      font-size: 1.05rem;
+    }
+
+    .concept {
+      background: var(--bg-secondary);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+
+    .concept-inner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      padding: 3rem 2rem;
+      flex-wrap: wrap;
+      text-align: center;
+    }
+
+    .concept-block {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.75rem;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .concept-block .label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-tertiary);
+      margin-bottom: 0.25rem;
+    }
+
+    .concept-block .value {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .concept-arrow {
+      font-size: 1.5rem;
+      color: var(--orange);
+      font-weight: 700;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .feature-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+    }
+
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+      font-size: 1.25rem;
+    }
+
+    .fi-blue   { background: rgba(0, 0, 153, 0.1); color: var(--accent); }
+    .fi-orange { background: rgba(254, 143, 17, 0.12); color: var(--orange); }
+    .fi-green  { background: rgba(132, 192, 65, 0.15); color: var(--success); }
+    .fi-azure  { background: rgba(17, 149, 235, 0.12); color: var(--azure); }
+
+    .feature-card h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+    }
+
+    .feature-card p {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .roles {
+      background: var(--bg-secondary);
+    }
+
+    .roles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+
+    .role-card {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      text-align: center;
+    }
+
+    .role-badge {
+      display: inline-block;
+      padding: 0.3rem 0.9rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.75rem;
+    }
+
+    .rb-lead       { background: rgba(0, 0, 153, 0.1);   color: var(--accent); }
+    .rb-support    { background: rgba(132, 192, 65, 0.15); color: var(--success); }
+    .rb-challenge  { background: rgba(254, 143, 17, 0.12); color: var(--orange); }
+    .rb-independent{ background: rgba(17, 149, 235, 0.12); color: var(--azure); }
+
+    .role-card p {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .providers {
+      text-align: center;
+    }
+
+    .provider-logos {
+      display: flex;
+      gap: 2rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 2rem;
+    }
+
+    .provider-chip {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.75rem;
+    }
+
+    .provider-chip .provider-name {
+      font-weight: 600;
+      font-size: 1.05rem;
+    }
+
+    .provider-chip .provider-model {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      font-family: "SF Mono", "Fira Code", monospace;
+    }
+
+    .quickstart {
+      background: var(--bg-secondary);
+    }
+
+    .code-block {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem 2rem;
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 0.95rem;
+      max-width: 560px;
+      margin: 0 auto;
+      overflow-x: auto;
+      text-align: left;
+    }
+
+    .code-block .comment { color: var(--text-tertiary); }
+    .code-block .cmd     { color: var(--success); }
+
+    .requirements-list {
+      list-style: none;
+      max-width: 480px;
+      margin: 2rem auto 0;
+      text-align: left;
+    }
+
+    .requirements-list li {
+      padding: 0.5rem 0;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .requirements-list li::before {
+      content: "";
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    footer {
+      padding: 3rem 2rem;
+      text-align: center;
+      border-top: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    footer .footer-links {
+      display: flex;
+      gap: 2rem;
+      justify-content: center;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 600px) {
+      .concept-inner { flex-direction: column; gap: 0.75rem; }
+      .concept-arrow { transform: rotate(90deg); }
+      section { padding: 3rem 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <section class="hero">
+    <div class="hero-icon">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+      </svg>
+    </div>
+    <h1><span>SkillWorkflowEngine</span></h1>
+    <p class="subtitle">
+      Native macOS App zum Komponieren und Ausfuhren KI-gestutzter Beratungsworkflows.
+      Baue virtuelle Beraterteams aus Personas und Skills &mdash; mit Quality Gates und Multi-Provider-Support.
+    </p>
+    <div class="cta-group">
+      <a href="https://github.com/GodModeAI2025/SkillWorkflowEngine" class="btn btn-primary">
+        <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub Repository
+      </a>
+      <a href="#quickstart" class="btn btn-secondary">Schnellstart</a>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <h2 class="section-title">Kernkonzept</h2>
+      <p class="section-subtitle">Daten und Auftrag treffen auf ein konfigurierbares Beraterteam</p>
+      <div class="concept">
+        <div class="concept-inner">
+          <div class="concept-block">
+            <div class="label">Input</div>
+            <div class="value">Daten + Auftrag</div>
+          </div>
+          <div class="concept-arrow">&rarr;</div>
+          <div class="concept-block">
+            <div class="label">Team</div>
+            <div class="value">WER + WAS</div>
+          </div>
+          <div class="concept-arrow">&rarr;</div>
+          <div class="concept-block">
+            <div class="label">Output</div>
+            <div class="value">Ergebnis</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <h2 class="section-title">Features</h2>
+      <p class="section-subtitle">Alles, was du brauchst, um KI-Beratungsworkflows zu orchestrieren</p>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon fi-blue">&#9881;</div>
+          <h3>Drag &amp; Drop Composer</h3>
+          <p>Workflow visuell zusammenstellen mit Live-Prompt-Vorschau fur jeden Schritt.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon fi-orange">&#9878;</div>
+          <h3>Quality Gates</h3>
+          <p>Manuelles Review, Auto-Pass oder Required &mdash; pro Schritt konfigurierbar.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon fi-green">&#9733;</div>
+          <h3>Multi-Provider</h3>
+          <p>OpenAI und Anthropic mit per-Step Model-Overrides. API Keys bleiben lokal.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon fi-azure">&#128218;</div>
+          <h3>AIConsultant-Bibliothek</h3>
+          <p>Personas, Skills, Agents und Standard-Workflows direkt importieren.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon fi-blue">&#128193;</div>
+          <h3>Folder Context Injection</h3>
+          <p>Repo oder Ordner als Kontext einbinden &mdash; das Team analysiert den Code.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon fi-orange">&#127912;</div>
+          <h3>Theming</h3>
+          <p>System, Hell und Dunkel &mdash; mit nativem macOS Look &amp; Feel.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="roles">
+    <div class="container">
+      <h2 class="section-title">Berater-Rollen</h2>
+      <p class="section-subtitle">Jeder Teamslot bekommt eine klare Verantwortung</p>
+      <div class="roles-grid">
+        <div class="role-card">
+          <div class="role-badge rb-lead">LEAD</div>
+          <p>Fuhrt den Schritt, strukturiert das Ergebnis, trifft Annahmen transparent.</p>
+        </div>
+        <div class="role-card">
+          <div class="role-badge rb-support">SUPPORT</div>
+          <p>Erganzt den Lead, vertieft Teilaspekte, bereitet Ubergaben vor.</p>
+        </div>
+        <div class="role-card">
+          <div class="role-badge rb-challenge">CHALLENGE</div>
+          <p>Pruft kritisch, sucht Lucken, Risiken und Widerspruche.</p>
+        </div>
+        <div class="role-card">
+          <div class="role-badge rb-independent">INDEPENDENT</div>
+          <p>Arbeitet eigenstandig, ohne die Sicht des Lead zu ubernehmen.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="providers">
+    <div class="container">
+      <h2 class="section-title">AI Provider</h2>
+      <p class="section-subtitle">Flexibel zwischen Anbietern wechseln &mdash; auch pro Schritt</p>
+      <div class="provider-logos">
+        <div class="provider-chip">
+          <div>
+            <div class="provider-name">OpenAI</div>
+            <div class="provider-model">gpt-5.5</div>
+          </div>
+        </div>
+        <div class="provider-chip">
+          <div>
+            <div class="provider-name">Anthropic</div>
+            <div class="provider-model">claude-opus-4-1</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="quickstart" id="quickstart">
+    <div class="container">
+      <h2 class="section-title">Schnellstart</h2>
+      <p class="section-subtitle">In drei Befehlen zur laufenden App</p>
+      <div class="code-block">
+        <span class="comment"># Repository klonen</span><br>
+        <span class="cmd">git clone</span> https://github.com/GodModeAI2025/SkillWorkflowEngine.git<br>
+        <span class="cmd">cd</span> SkillWorkflowEngine<br><br>
+        <span class="comment"># App bauen und starten</span><br>
+        <span class="cmd">./script/build_and_run.sh</span>
+      </div>
+      <ul class="requirements-list">
+        <li>macOS 14 (Sonoma) oder neuer</li>
+        <li>Swift 5.9+ / Xcode 15+</li>
+        <li>OpenAI oder Anthropic API Key</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-links">
+      <a href="https://github.com/GodModeAI2025/SkillWorkflowEngine">GitHub Repository</a>
+      <a href="https://godmodeai2025.github.io/MarkZimmermann/">Impressum</a>
+    </div>
+    <p>&copy; 2026 Mark Zimmermann &middot; Apache License 2.0</p>
+  </footer>
+
+</body>
+</html>
