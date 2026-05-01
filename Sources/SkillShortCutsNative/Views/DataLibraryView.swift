@@ -28,7 +28,7 @@ struct DataLibraryView: View {
 
     private var paletteHeader: some View {
         HStack(alignment: .center, spacing: 12) {
-            ScratchStyle.headerNumber(1, color: ScratchStyle.looksPurple)
+            ScratchStyle.headerNumber(1, color: Color.nwebTextSecondary)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("Bausteine")
@@ -53,10 +53,10 @@ struct DataLibraryView: View {
                 .foregroundStyle(Color.nwebTextSecondary)
 
             VStack(alignment: .leading, spacing: 8) {
-                BuildGuideRow(number: 1, title: "Daten", detail: "Ordner oder Text angeben", color: ScratchStyle.motionBlue)
+                BuildGuideRow(number: 1, title: "Daten", detail: "Ordner oder Text angeben", color: Color.nwebTextSecondary)
                 BuildGuideRow(number: 2, title: "WAS", detail: "Arbeit oder Prüfung ziehen", color: ScratchStyle.looksPurple)
                 BuildGuideRow(number: 3, title: "WER", detail: "optional Perspektive ergänzen", color: ScratchStyle.variablesOrange)
-                BuildGuideRow(number: 4, title: "Start", detail: "Ergebnis prüfen oder Feedback geben", color: ScratchStyle.operatorsGreen)
+                BuildGuideRow(number: 4, title: "Start", detail: "Ergebnis prüfen oder Feedback geben", color: Color.nwebTextSecondary)
             }
         }
         .scratchPanel()
@@ -277,6 +277,8 @@ struct DataLibraryView: View {
             TextField("Suchen: prüfen, schreiben, zusammenfassen...", text: $store.searchText)
                 .textFieldStyle(.roundedBorder)
 
+            ColorLogicNote()
+
             InfoControlRow(
                 "Baustein-Art",
                 message: "WAS sind ausführbare Blöcke: analysieren, schreiben, prüfen, QS, finalisieren. WER verändert die Perspektive eines WAS-Blocks, erzeugt aber keinen eigenen Arbeitsschritt."
@@ -298,9 +300,13 @@ struct DataLibraryView: View {
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(Color.nwebTextSecondary)
 
-            LazyVStack(spacing: 8) {
-                ForEach(itemsForMode) { item in
-                    LibraryRow(item: item)
+            if itemsForMode.isEmpty {
+                EmptyFilterState()
+            } else {
+                LazyVStack(spacing: 8) {
+                    ForEach(itemsForMode) { item in
+                        LibraryRow(item: item)
+                    }
                 }
             }
         }
@@ -322,37 +328,42 @@ struct DataLibraryView: View {
 
     @ViewBuilder
     private var filterBar: some View {
+        let columns = [
+            GridItem(.adaptive(minimum: 136), spacing: 8)
+        ]
+
         VStack(alignment: .leading, spacing: 8) {
             Text("Filter")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Color.nwebTextSecondary)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    switch mode {
-                    case .what:
-                        ForEach(WhatFilter.allCases) { filter in
-                            FilterChip(
-                                title: filter.label,
-                                isSelected: whatFilter == filter,
-                                color: filter.color
-                            ) {
-                                whatFilter = filter
-                            }
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+                switch mode {
+                case .what:
+                    ForEach(WhatFilter.allCases) { filter in
+                        FilterChip(
+                            title: filter.label,
+                            count: count(for: filter),
+                            isSelected: whatFilter == filter,
+                            color: filter.color,
+                            selectedForeground: filter.selectedForeground
+                        ) {
+                            whatFilter = filter
                         }
-                    case .who:
-                        ForEach(WhoFilter.allCases) { filter in
-                            FilterChip(
-                                title: filter.label,
-                                isSelected: whoFilter == filter,
-                                color: filter.color
-                            ) {
-                                whoFilter = filter
-                            }
+                    }
+                case .who:
+                    ForEach(WhoFilter.allCases) { filter in
+                        FilterChip(
+                            title: filter.label,
+                            count: count(for: filter),
+                            isSelected: whoFilter == filter,
+                            color: filter.color,
+                            selectedForeground: filter.selectedForeground
+                        ) {
+                            whoFilter = filter
                         }
                     }
                 }
-                .padding(.vertical, 2)
             }
         }
     }
@@ -378,6 +389,19 @@ struct DataLibraryView: View {
             store.workDirectoryPath = url.path
             store.saveSettings()
         }
+    }
+
+    private func count(for filter: WhatFilter) -> Int {
+        store.filteredItems()
+            .filter { $0.kind == .consultingAgent || $0.kind == .jobSkill || $0.kind == .qualityGate }
+            .filter { filter.matches($0) }
+            .count
+    }
+
+    private func count(for filter: WhoFilter) -> Int {
+        store.filteredItems(kind: .personaSkill)
+            .filter { filter.matches($0) }
+            .count
     }
 }
 
@@ -410,22 +434,95 @@ private struct BuildGuideRow: View {
 
 private struct FilterChip: View {
     let title: String
+    let count: Int
     let isSelected: Bool
     let color: Color
+    let selectedForeground: Color
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(isSelected ? .white : color)
-                .padding(.horizontal, 11)
-                .padding(.vertical, 7)
-                .background(isSelected ? color : color.opacity(0.11), in: Capsule())
-                .overlay(Capsule().stroke(color.opacity(isSelected ? 0 : 0.35)))
+            HStack(spacing: 8) {
+                Text(title)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+                Spacer(minLength: 4)
+                Text("\(count)")
+                    .font(.caption2.weight(.bold))
+                    .monospacedDigit()
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background((isSelected ? selectedForeground : color).opacity(0.16), in: Capsule())
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(isSelected ? selectedForeground : color)
+            .frame(maxWidth: .infinity, minHeight: 38)
+            .padding(.horizontal, 11)
+            .background(isSelected ? color : color.opacity(0.11), in: Capsule())
+            .overlay(Capsule().stroke(color.opacity(isSelected ? 0 : 0.40), lineWidth: 1.2))
         }
         .buttonStyle(.plain)
         .contentShape(Capsule())
+    }
+}
+
+private struct ColorLogicNote: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Farblogik")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.nwebTextSecondary)
+
+            Text("Blockrand bleibt beim Ziehen erhalten: Violett = WAS, Grün = QS, Orange = WER. Filterchips haben eigene Farben; ihre Zahl zeigt die Treffer in der Liste.")
+                .font(.caption)
+                .foregroundStyle(Color.nwebTextSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                LegendPill(color: ScratchStyle.looksPurple, text: "WAS")
+                LegendPill(color: ScratchStyle.operatorsGreen, text: "QS")
+                LegendPill(color: ScratchStyle.variablesOrange, text: "WER")
+            }
+        }
+        .padding(10)
+        .background(Color.nwebBackgroundSecondary, in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius))
+        .overlay(
+            RoundedRectangle(cornerRadius: NWEBTheme.smallRadius)
+                .stroke(Color.nwebBorder)
+        )
+    }
+}
+
+private struct LegendPill: View {
+    let color: Color
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(.white)
+            .frame(width: 44, height: 22)
+            .background(color, in: Capsule())
+    }
+}
+
+private struct EmptyFilterState: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Keine Treffer", systemImage: "line.3.horizontal.decrease.circle")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.nwebTextPrimary)
+            Text("Der aktive Filter und die Suche schließen gerade alle Blöcke aus.")
+                .font(.caption)
+                .foregroundStyle(Color.nwebTextSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color.nwebBackgroundSecondary, in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius))
+        .overlay(
+            RoundedRectangle(cornerRadius: NWEBTheme.smallRadius)
+                .stroke(Color.nwebBorder)
+        )
     }
 }
 
@@ -439,14 +536,28 @@ private struct CategoryHint: View {
             Circle()
                 .fill(color)
                 .frame(width: 10, height: 10)
-            Text(text)
-                .font(.caption)
-                .foregroundStyle(Color.nwebTextSecondary)
-                .lineLimit(2)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Aktiver Filter: \(label)")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.nwebTextPrimary)
+                Text("\(text) \(resultSentence)")
+                    .font(.caption)
+                    .foregroundStyle(Color.nwebTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .background(color.opacity(0.10), in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius))
+    }
+
+    private var label: String {
+        switch mode {
+        case .what:
+            return whatFilter.label
+        case .who:
+            return whoFilter.label
+        }
     }
 
     private var text: String {
@@ -455,6 +566,19 @@ private struct CategoryHint: View {
             return whatFilter.description
         case .who:
             return whoFilter.description
+        }
+    }
+
+    private var resultSentence: String {
+        switch mode {
+        case .what:
+            return whatFilter == .all
+                ? "Die Liste darunter zeigt alle passenden WAS- und QS-Blöcke."
+                : "Die Liste darunter zeigt nur diese Kategorie."
+        case .who:
+            return whoFilter == .all
+                ? "Die Liste darunter zeigt alle passenden WER-Blöcke."
+                : "Die Liste darunter zeigt nur diese Kategorie."
         }
     }
 
@@ -505,28 +629,37 @@ private enum WhatFilter: String, CaseIterable, Identifiable {
     var description: String {
         switch self {
         case .all:
-            return "WAS sind ausführbare Blöcke: Arbeit, Analyse, Schreiben, QS und Finale."
+            return "Alle WAS- und QS-Blöcke, die zur Suche passen."
         case .analyze:
-            return "Analysieren zeigt Blöcke, die verstehen, bewerten, vergleichen oder Risiken finden."
+            return "Nur Blöcke, die verstehen, bewerten, vergleichen oder Risiken finden."
         case .create:
-            return "Erstellen zeigt Blöcke, die Texte, ADRs, Reports, PRs oder Zusammenfassungen erzeugen."
+            return "Nur Blöcke, die ein sichtbares Artefakt erzeugen: Text, Report, ADR, PR oder Folienstruktur."
         case .quality:
-            return "Prüfen/QS zeigt Quality Gates, Lektorat, kritische Reviews und Abschlussprüfungen."
+            return "Nur Prüf-, Lektorats-, Audit- und Quality-Gate-Blöcke."
         case .decide:
-            return "Entscheiden zeigt Blöcke für Strategie, Priorisierung, Business Case und Entscheidungsvorlagen."
+            return "Nur Blöcke für Strategie, Priorisierung, Business Case und Entscheidungsvorlagen."
         case .automate:
-            return "Automatisieren zeigt Blöcke mit Prozess-, Technik-, Agenten- oder Umsetzungsbezug."
+            return "Nur Blöcke mit Prozess-, Betriebs-, Engineering- oder Umsetzungsbezug."
         }
     }
 
     var color: Color {
         switch self {
-        case .all: return ScratchStyle.looksPurple
+        case .all: return Color.nwebTextSecondary
         case .analyze: return ScratchStyle.sensingBlue
-        case .create: return ScratchStyle.looksPurple
+        case .create: return ScratchStyle.soundPink
         case .quality: return ScratchStyle.operatorsGreen
-        case .decide: return ScratchStyle.eventYellow
+        case .decide: return ScratchStyle.controlOrange
         case .automate: return ScratchStyle.motionBlue
+        }
+    }
+
+    var selectedForeground: Color {
+        switch self {
+        case .all, .analyze, .create, .quality, .automate:
+            return .white
+        case .decide:
+            return Color.nwebTextPrimary
         }
     }
 
@@ -535,15 +668,29 @@ private enum WhatFilter: String, CaseIterable, Identifiable {
         case .all:
             return true
         case .analyze:
-            return item.matchesAny(["analyse", "analysis", "analys", "review", "bewert", "audit", "diagnos", "risk", "risiko", "architektur", "architecture", "security", "strategie"])
+            return item.matchesIdentity([
+                "analyse", "analysis", "analyst", "analytics", "problemloser", "marktexperte",
+                "prognostiker", "architect", "architekt", "security", "auditor", "risk", "risiko"
+            ])
         case .create:
-            return item.matchesAny(["schreib", "dokument", "report", "adr", "pr-", "pull request", "folie", "summary", "zusammenfass", "text", "redaktion", "lektor"])
+            return item.matchesIdentity([
+                "reporter", "redakteur", "dokument", "documentation", "requirements",
+                "designer", "ux", "ui", "product-owner", "summary", "folio", "pr-"
+            ])
         case .quality:
-            return item.kind == .qualityGate || item.matchesAny(["prüf", "pruef", "qs", "quality", "lektor", "review", "kritisch", "valid", "check", "gate", "sicherheit"])
+            return item.kind == .qualityGate || item.matchesIdentity([
+                "lektor", "auditor", "security", "compliance", "soc", "quality", "pruef", "pruf", "qs"
+            ])
         case .decide:
-            return item.matchesAny(["entscheidung", "decision", "strategie", "prioris", "business case", "management", "governance", "roadmap", "invest", "kosten"])
+            return item.matchesIdentity([
+                "stratege", "strategy", "strategic", "purchaser", "head-of-it",
+                "business", "backoffice", "personalchef", "product-owner", "management", "finance"
+            ])
         case .automate:
-            return item.matchesAny(["agent", "workflow", "prozess", "automation", "orchestr", "backoffice", "service", "operation", "code", "developer", "engineer"])
+            return item.matchesIdentity([
+                "operations", "devops", "release", "application", "cloud", "developer",
+                "engineer", "technician", "service", "support", "sap", "workflow", "orchestr"
+            ])
         }
     }
 }
@@ -572,28 +719,37 @@ private enum WhoFilter: String, CaseIterable, Identifiable {
     var description: String {
         switch self {
         case .all:
-            return "WER-Blöcke ändern die Perspektive, Haltung oder Sprache eines WAS-Blocks."
+            return "Alle WER-Blöcke, die zur Suche passen."
         case .domain:
-            return "Fachrolle zeigt berufliche Perspektiven wie Architektur, Engineering, Betrieb, Security oder Finance."
+            return "Fachliche Perspektiven mit Experten-, Wissenschafts-, Rechts-, Energie- oder Finanzbezug."
         case .leadership:
-            return "Führung zeigt strategische, Management- und Entscheider-Perspektiven."
+            return "Unternehmer-, Tech-Leader- und Entscheider-Perspektiven."
         case .creative:
-            return "Kreativ zeigt visionäre, gestalterische oder ungewohnte Denkhaltungen."
+            return "Produkt-, Design-, Medien- und visionäre Denkhaltungen."
         case .critical:
-            return "Kritisch zeigt skeptische, prüfende oder risiko-orientierte Perspektiven."
+            return "Skeptische, rechtliche, politische, risiko- oder kontrollorientierte Perspektiven."
         case .communication:
-            return "Kommunikation zeigt Perspektiven für Story, Redaktion, Marketing, Moderation oder Anschlussfähigkeit."
+            return "Perspektiven für Sprache, Story, Öffentlichkeit, Moderation und Anschlussfähigkeit."
         }
     }
 
     var color: Color {
         switch self {
-        case .all: return ScratchStyle.variablesOrange
-        case .domain: return ScratchStyle.motionBlue
-        case .leadership: return ScratchStyle.eventYellow
-        case .creative: return ScratchStyle.soundPink
-        case .critical: return ScratchStyle.controlOrange
-        case .communication: return ScratchStyle.variablesOrange
+        case .all: return Color.nwebTextSecondary
+        case .domain: return ScratchStyle.sensingBlue
+        case .leadership: return ScratchStyle.controlOrange
+        case .creative: return ScratchStyle.looksPurple
+        case .critical: return ScratchStyle.myBlocksRed
+        case .communication: return ScratchStyle.soundPink
+        }
+    }
+
+    var selectedForeground: Color {
+        switch self {
+        case .all, .domain, .creative, .critical, .communication:
+            return .white
+        case .leadership:
+            return Color.nwebTextPrimary
         }
     }
 
@@ -602,33 +758,61 @@ private enum WhoFilter: String, CaseIterable, Identifiable {
         case .all:
             return true
         case .domain:
-            return item.matchesAny(["architect", "architekt", "engineer", "developer", "manager", "specialist", "technician", "security", "data", "cloud", "software", "infrastruktur", "infrastructure", "finance", "business"])
+            return item.matchesProfile([
+                "wissenschaftler", "rechts", "jurist", "energie", "gesundheit", "daten",
+                "biotechnologie", "finanz", "bank", "philosoph"
+            ])
         case .leadership:
-            return item.matchesAny(["ceo", "cfo", "cto", "leader", "führung", "management", "stratege", "investor", "mogul", "direktor", "executive", "bezos", "jobs", "musk"])
+            return item.matchesProfile([
+                "unternehmer", "tech leader", "fuehrung", "fuhrung", "management",
+                "strategischer berater", "investor", "mogul", "bezos", "jobs", "musk", "nadella"
+            ])
         case .creative:
-            return item.matchesAny(["creative", "kreativ", "design", "vision", "innov", "artist", "autor", "philosoph", "community", "evangelist", "verlag"])
+            return item.matchesProfile([
+                "kreativ", "design", "vision", "produkt", "fotografie", "medien",
+                "verlag", "schreiber", "artist", "community", "evangelist", "innovation"
+            ])
         case .critical:
-            return item.matchesAny(["krit", "skept", "risk", "risiko", "challenge", "auditor", "security", "compliance", "jurist", "controlling", "verteidigung"])
+            return item.matchesProfile([
+                "krit", "skept", "risiko", "rechts", "jurist", "staats", "politik",
+                "bank", "finanz", "diplomat", "verteidigung", "compliance", "reform"
+            ])
         case .communication:
-            return item.matchesAny(["kommunikation", "marketing", "reporter", "lektor", "editor", "moderator", "coach", "sales", "story", "redaktion"])
+            return item.matchesProfile([
+                "kommunikation", "rhetorik", "redner", "volksredner", "story",
+                "marketing", "medien", "moderator", "coach", "sales", "schreiber", "verlag"
+            ])
         }
     }
 }
 
 private extension LibraryItem {
-    func matchesAny(_ keywords: [String]) -> Bool {
-        let haystack = [
+    func matchesIdentity(_ keywords: [String]) -> Bool {
+        containsAny(keywords, in: [
+            id,
+            name,
+            title
+        ])
+    }
+
+    func matchesProfile(_ keywords: [String]) -> Bool {
+        containsAny(keywords, in: [
             id,
             name,
             title,
-            summary,
-            tags.joined(separator: " "),
-            content
-        ]
-            .joined(separator: " ")
-            .lowercased()
+            summary
+        ])
+    }
 
-        return keywords.contains { haystack.contains($0.lowercased()) }
+    private func containsAny(_ keywords: [String], in fields: [String]) -> Bool {
+        let haystack = normalize(fields.joined(separator: " "))
+        return keywords.contains { haystack.contains(normalize($0)) }
+    }
+
+    private func normalize(_ value: String) -> String {
+        value
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .lowercased()
     }
 }
 
@@ -646,7 +830,7 @@ struct LibraryRow: View {
                     .foregroundStyle(Color.nwebTextPrimary)
                     .lineLimit(1)
                 Spacer()
-                Text(item.kind.label)
+                Text(badgeTitle)
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(Color.nwebTextSecondary)
             }
@@ -677,5 +861,18 @@ struct LibraryRow: View {
 
     private var accentColor: Color {
         ScratchStyle.blockColor(for: item.kind)
+    }
+
+    private var badgeTitle: String {
+        switch item.kind {
+        case .personaSkill:
+            return "WER"
+        case .qualityGate:
+            return "QS"
+        case .consultingAgent, .jobSkill:
+            return "WAS"
+        case .rootSkill:
+            return "ROOT"
+        }
     }
 }

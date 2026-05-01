@@ -34,7 +34,7 @@ struct TeamComposerView: View {
 
     private var header: some View {
         HStack {
-            ScratchStyle.headerNumber(2, color: ScratchStyle.motionBlue)
+            ScratchStyle.headerNumber(2, color: Color.nwebTextSecondary)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("Ablauf")
@@ -117,8 +117,7 @@ struct ConsultantCard: View {
         let runState = store.runSteps.first { $0.id == step.id }
         let isRunning = runState?.status == .running
         let isWaitingForReview = runState?.status == .needsReview
-        let blockColor = skill.map { ScratchStyle.blockColor(for: $0.kind) } ?? ScratchStyle.blockColor(for: step.role)
-        let roleColor = ScratchStyle.blockColor(for: step.role)
+        let blockColor = skill.map { ScratchStyle.blockColor(for: $0.kind) } ?? ScratchStyle.looksPurple
         Button {
             store.selectStep(step.id)
         } label: {
@@ -180,10 +179,10 @@ struct ConsultantCard: View {
                             .foregroundStyle(runState.status == .failed ? Color.nwebError : Color.nwebTextSecondary)
                         }
                         Label(step.role.displayName, systemImage: "flag.checkered")
-                            .foregroundStyle(roleColor)
+                            .foregroundStyle(Color.nwebTextSecondary)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 4)
-                            .background(roleColor.opacity(0.12), in: Capsule())
+                            .background(Color.nwebTextSecondary.opacity(0.10), in: Capsule())
 
                         Label("QS \(step.qualityGate.rawValue)", systemImage: "checkmark.seal")
                     }

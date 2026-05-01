@@ -104,6 +104,19 @@ enum QualityGateMode: String, Codable, CaseIterable, Identifiable {
     case none
 
     var id: String { rawValue }
+
+    var explanation: String {
+        switch self {
+        case .manual:
+            return "Manual: Der Ablauf hält nach diesem Block an, du prüfst das Ergebnis und gibst es frei oder schickst es mit Feedback zurück."
+        case .required:
+            return "Required: Wie Manual, aber als bewusst zwingende Freigabe markiert, weil dieser Block nicht übersprungen werden soll."
+        case .auto:
+            return "Auto: Die App lässt das Ergebnis automatisch durch QS prüfen und hält nur an, wenn Nacharbeit nötig ist."
+        case .none:
+            return "None: Der Ablauf läuft ohne Prüfung direkt zum nächsten Block weiter."
+        }
+    }
 }
 
 enum AIProvider: String, Codable, CaseIterable, Identifiable {

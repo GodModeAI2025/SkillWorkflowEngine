@@ -21,32 +21,15 @@ enum ScratchStyle {
     static func blockColor(for kind: LibraryItemKind) -> Color {
         switch kind {
         case .rootSkill:
-            return myBlocksRed
+            return Color.nwebTextSecondary
         case .consultingAgent:
-            return motionBlue
+            return looksPurple
         case .jobSkill:
             return looksPurple
         case .personaSkill:
             return variablesOrange
         case .qualityGate:
             return operatorsGreen
-        }
-    }
-
-    static func blockColor(for role: ConsultantRole) -> Color {
-        switch role {
-        case .lead:
-            return motionBlue
-        case .support:
-            return operatorsGreen
-        case .challenge:
-            return controlOrange
-        case .independent:
-            return sensingBlue
-        case .lector:
-            return soundPink
-        case .finalizer:
-            return myBlocksRed
         }
     }
 

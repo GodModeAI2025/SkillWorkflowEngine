@@ -62,7 +62,7 @@ struct InspectorRunView: View {
 
     private var inspectorHeader: some View {
         HStack(alignment: .top) {
-            ScratchStyle.headerNumber(3, color: ScratchStyle.operatorsGreen)
+            ScratchStyle.headerNumber(3, color: Color.nwebTextSecondary)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("Prüfen & Starten")
@@ -151,7 +151,7 @@ struct InspectorRunView: View {
 
                 InfoControlRow(
                     "QS",
-                    message: "Legt fest, ob nach diesem Schritt eine manuelle Freigabe, Auto-QS, zwingende QS oder kein Review nötig ist."
+                    message: QualityGateMode.allCases.map(\.explanation).joined(separator: "\n\n")
                 ) {
                     Picker("QS", selection: Binding(
                         get: { step.qualityGate },
@@ -163,6 +163,14 @@ struct InspectorRunView: View {
                     }
                     .labelsHidden()
                 }
+
+                Text(step.qualityGate.explanation)
+                    .font(.caption)
+                    .foregroundStyle(Color.nwebTextSecondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(ScratchStyle.operatorsGreen.opacity(0.10), in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius))
             }
 
             InspectorSection("Auftrag", systemImage: "text.badge.checkmark") {
@@ -568,7 +576,7 @@ struct InspectorRunView: View {
         case .openAI:
             ProviderFieldGroup(
                 title: "OpenAI",
-                color: ScratchStyle.motionBlue,
+                color: Color.nwebTextSecondary,
                 description: "Dieser Ablauf nutzt OpenAI für alle Blöcke ohne eigenes Modell-Override."
             ) {
                 TextField("OpenAI Modell", text: $store.openAIModel)
@@ -577,7 +585,7 @@ struct InspectorRunView: View {
         case .anthropic:
             ProviderFieldGroup(
                 title: "Anthropic",
-                color: ScratchStyle.controlOrange,
+                color: Color.nwebTextSecondary,
                 description: "Dieser Ablauf nutzt Anthropic für alle Blöcke ohne eigenes Modell-Override."
             ) {
                 TextField("Anthropic Modell", text: $store.anthropicModel)
