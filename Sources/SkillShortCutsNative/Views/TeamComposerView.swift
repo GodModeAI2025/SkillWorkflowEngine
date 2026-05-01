@@ -117,7 +117,8 @@ struct ConsultantCard: View {
         let runState = store.runSteps.first { $0.id == step.id }
         let isRunning = runState?.status == .running
         let isWaitingForReview = runState?.status == .needsReview
-        let blockColor = ScratchStyle.blockColor(for: step.role)
+        let blockColor = skill.map { ScratchStyle.blockColor(for: $0.kind) } ?? ScratchStyle.blockColor(for: step.role)
+        let roleColor = ScratchStyle.blockColor(for: step.role)
         Button {
             store.selectStep(step.id)
         } label: {
@@ -179,6 +180,11 @@ struct ConsultantCard: View {
                             .foregroundStyle(runState.status == .failed ? Color.nwebError : Color.nwebTextSecondary)
                         }
                         Label(step.role.displayName, systemImage: "flag.checkered")
+                            .foregroundStyle(roleColor)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 4)
+                            .background(roleColor.opacity(0.12), in: Capsule())
+
                         Label("QS \(step.qualityGate.rawValue)", systemImage: "checkmark.seal")
                     }
                     .font(.caption2.weight(.semibold))
@@ -190,7 +196,7 @@ struct ConsultantCard: View {
                         title: "WAS",
                         value: skill?.displayName ?? "Skill fehlt",
                         systemImage: "briefcase",
-                        color: skill.map { ScratchStyle.blockColor(for: $0.kind) } ?? ScratchStyle.looksPurple
+                        color: blockColor
                     )
                     Chip(
                         title: "WER",
