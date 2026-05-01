@@ -61,6 +61,8 @@ struct PromptBuilder {
         Titel: \(step.title)
         Rolle: \(step.role.displayName)
         \(step.role.promptInstruction)
+        Input-Modus: \(step.inputMode.label)
+        Input-Regel: \(step.inputMode.explanation)
         Aufgabe: \(step.taskText)
         Output-Typ: \(step.outputType)
         QS-Modus: \(step.qualityGate.rawValue)
@@ -76,8 +78,8 @@ struct PromptBuilder {
 
         \(redoBlock)
 
-        # Aktuelle Arbeitsartefakte vorheriger Schritte
-        Dies sind die gültigen `current.md`-Stände aus dem Arbeitsverzeichnis. Alte Versuche sind nicht maßgeblich.
+        # Aktuelle Arbeitsartefakte ausgewählter Eingänge
+        Dies sind genau die gültigen `current.md`-Stände, die laut Pipe-Verkabelung in diesen Knoten fließen. Alte Versuche und nicht verbundene Knoten sind nicht maßgeblich.
         \(previous.isEmpty ? "Keine." : previous)
 
         # Datenkontext

@@ -185,6 +185,9 @@ struct RunWorkspaceWriter {
                 title: step.title,
                 skillId: step.skillId,
                 personaId: step.personaId,
+                inputMode: step.inputMode.rawValue,
+                inputStepIds: step.inputStepIds,
+                dependencyStepIds: workflow.dependencyIndices(for: index).map { workflow.steps[$0].id },
                 role: step.role.rawValue,
                 qualityGate: step.qualityGate.rawValue
             )
@@ -425,7 +428,13 @@ struct RunWorkspaceWriter {
 
     func currentArtifacts(runDirectory: URL, steps: [ConsultantStep], upTo index: Int) -> [StepArtifact] {
         guard index > 0 else { return [] }
-        return steps.prefix(index).enumerated().compactMap { offset, step in
+        return currentArtifacts(runDirectory: runDirectory, steps: steps, indices: Array(0..<index))
+    }
+
+    func currentArtifacts(runDirectory: URL, steps: [ConsultantStep], indices: [Int]) -> [StepArtifact] {
+        indices.compactMap { offset in
+            guard steps.indices.contains(offset) else { return nil }
+            let step = steps[offset]
             let url = currentOutputURL(runDirectory: runDirectory, index: offset, step: step)
             guard let content = try? String(contentsOf: url, encoding: .utf8),
                   !content.trimmed.isEmpty
@@ -736,9 +745,10 @@ struct RunWorkspaceWriter {
         Dieser Ordner enthält die zwischengespeicherten SkillShortCuts-Stände dieses Laufs:
         - `CHAIN.jsonl` als append-only Audit-Chain mit Hash-Verkettung
         - `workflow.json`
+        - `run-plan.json` mit Pipe-Graph, Input-Policies und Abhängigkeiten
         - `input-folder-context.md`
         - `run-state.json`
-        - pro Schritt `current.md` als gültiger aktueller Stand
+        - pro Knoten `current.md` als gültiger aktueller Stand
         - alte Redo-Versuche unter `attempts/attempt-XX/`
         - pro Versuch `request-system.md`, `request-user.md`, `output.md`, QS- und Review-Dateien
         """
@@ -757,6 +767,9 @@ private struct StepPlan: Encodable {
     var title: String
     var skillId: String
     var personaId: String?
+    var inputMode: String
+    var inputStepIds: [String]
+    var dependencyStepIds: [String]
     var role: String
     var qualityGate: String
 }

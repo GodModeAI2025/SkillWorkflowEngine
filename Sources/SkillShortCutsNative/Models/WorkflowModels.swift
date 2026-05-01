@@ -119,6 +119,37 @@ enum QualityGateMode: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum StepInputMode: String, Codable, CaseIterable, Identifiable {
+    case sourceOnly
+    case previous
+    case allPrevious
+    case selectedSteps
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .sourceOnly: return "Source only"
+        case .previous: return "Previous"
+        case .allPrevious: return "All previous"
+        case .selectedSteps: return "Selected"
+        }
+    }
+
+    var explanation: String {
+        switch self {
+        case .sourceOnly:
+            return "Nutzt nur Source, Auftrag und Datenkontext. Dieser Knoten kann parallel zu anderen Source-only-Knoten laufen."
+        case .previous:
+            return "Nutzt den direkt vorherigen Knoten. Das ist die klassische lineare Pipe."
+        case .allPrevious:
+            return "Nutzt alle vorherigen gültigen Artefakte. Geeignet für Synthese, Abschlussbericht oder Lektorat."
+        case .selectedSteps:
+            return "Nutzt nur explizit ausgewählte Vorgängerknoten. Damit kann Knoten 5 gezielt nur Knoten 1 lesen."
+        }
+    }
+}
+
 enum AIProvider: String, Codable, CaseIterable, Identifiable {
     case openAI = "openai"
     case anthropic
@@ -192,6 +223,8 @@ struct ConsultantStep: Identifiable, Codable, Hashable {
     var title: String = ""
     var skillId: String = ""
     var personaId: String?
+    var inputMode: StepInputMode = .previous
+    var inputStepIds: [String] = []
     var role: ConsultantRole = .lead
     var taskText: String = ""
     var prompt: String = ""
@@ -200,6 +233,73 @@ struct ConsultantStep: Identifiable, Codable, Hashable {
     var providerOverride: AIProvider?
     var modelOverride: String = ""
     var acceptanceCriteria: String = ""
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case skillId
+        case personaId
+        case inputMode
+        case inputStepIds
+        case role
+        case taskText
+        case prompt
+        case outputType
+        case qualityGate
+        case providerOverride
+        case modelOverride
+        case acceptanceCriteria
+    }
+
+    init(
+        id: String = UUID().uuidString,
+        title: String = "",
+        skillId: String = "",
+        personaId: String? = nil,
+        inputMode: StepInputMode = .previous,
+        inputStepIds: [String] = [],
+        role: ConsultantRole = .lead,
+        taskText: String = "",
+        prompt: String = "",
+        outputType: String = "markdown-report",
+        qualityGate: QualityGateMode = .manual,
+        providerOverride: AIProvider? = nil,
+        modelOverride: String = "",
+        acceptanceCriteria: String = ""
+    ) {
+        self.id = id
+        self.title = title
+        self.skillId = skillId
+        self.personaId = personaId
+        self.inputMode = inputMode
+        self.inputStepIds = inputStepIds
+        self.role = role
+        self.taskText = taskText
+        self.prompt = prompt
+        self.outputType = outputType
+        self.qualityGate = qualityGate
+        self.providerOverride = providerOverride
+        self.modelOverride = modelOverride
+        self.acceptanceCriteria = acceptanceCriteria
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
+        skillId = try container.decodeIfPresent(String.self, forKey: .skillId) ?? ""
+        personaId = try container.decodeIfPresent(String.self, forKey: .personaId)
+        inputMode = try container.decodeIfPresent(StepInputMode.self, forKey: .inputMode) ?? .previous
+        inputStepIds = try container.decodeIfPresent([String].self, forKey: .inputStepIds) ?? []
+        role = try container.decodeIfPresent(ConsultantRole.self, forKey: .role) ?? .lead
+        taskText = try container.decodeIfPresent(String.self, forKey: .taskText) ?? ""
+        prompt = try container.decodeIfPresent(String.self, forKey: .prompt) ?? ""
+        outputType = try container.decodeIfPresent(String.self, forKey: .outputType) ?? "markdown-report"
+        qualityGate = try container.decodeIfPresent(QualityGateMode.self, forKey: .qualityGate) ?? .manual
+        providerOverride = try container.decodeIfPresent(AIProvider.self, forKey: .providerOverride)
+        modelOverride = try container.decodeIfPresent(String.self, forKey: .modelOverride) ?? ""
+        acceptanceCriteria = try container.decodeIfPresent(String.self, forKey: .acceptanceCriteria) ?? ""
+    }
 }
 
 struct ShortcutWorkflow: Identifiable, Codable, Hashable {
@@ -208,6 +308,55 @@ struct ShortcutWorkflow: Identifiable, Codable, Hashable {
     var input: WorkflowInput = WorkflowInput()
     var provider: AIProvider = .openAI
     var steps: [ConsultantStep] = []
+}
+
+extension ShortcutWorkflow {
+    func dependencyIndices(for index: Int) -> [Int] {
+        guard steps.indices.contains(index) else { return [] }
+        let step = steps[index]
+        switch step.inputMode {
+        case .sourceOnly:
+            return []
+        case .previous:
+            return index > 0 ? [index - 1] : []
+        case .allPrevious:
+            return index > 0 ? Array(0..<index) : []
+        case .selectedSteps:
+            let selected = Set(step.inputStepIds)
+            return steps[..<index].indices.filter { selected.contains(steps[$0].id) }
+        }
+    }
+
+    func transitiveDependentIndices(of sourceIndex: Int) -> [Int] {
+        guard steps.indices.contains(sourceIndex) else { return [] }
+        var result: Set<Int> = []
+        var stack = [sourceIndex]
+        while let current = stack.popLast() {
+            for index in steps.indices where index > current {
+                guard dependencyIndices(for: index).contains(current), !result.contains(index) else { continue }
+                result.insert(index)
+                stack.append(index)
+            }
+        }
+        return result.sorted()
+    }
+
+    func executionLevels() -> [[Int]] {
+        guard !steps.isEmpty else { return [] }
+        var levelsByIndex: [Int: Int] = [:]
+        for index in steps.indices {
+            let dependencies = dependencyIndices(for: index)
+            let level = dependencies
+                .compactMap { levelsByIndex[$0] }
+                .max()
+                .map { $0 + 1 } ?? 0
+            levelsByIndex[index] = level
+        }
+        let maxLevel = levelsByIndex.values.max() ?? 0
+        return (0...maxLevel).map { level in
+            steps.indices.filter { levelsByIndex[$0] == level }
+        }
+    }
 }
 
 enum RunStatus: String, Codable {

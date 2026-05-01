@@ -118,6 +118,33 @@ struct InspectorRunView: View {
                 }
 
                 InfoControlRow(
+                    "Inputs",
+                    message: StepInputMode.allCases.map { "\($0.label): \($0.explanation)" }.joined(separator: "\n\n")
+                ) {
+                    Picker("Inputs", selection: Binding(
+                        get: { step.inputMode },
+                        set: { newValue in store.updateSelectedStep { $0.inputMode = newValue } }
+                    )) {
+                        ForEach(StepInputMode.allCases) { mode in
+                            Text(mode.label).tag(mode)
+                        }
+                    }
+                    .labelsHidden()
+                }
+
+                Text(step.inputMode.explanation)
+                    .font(.caption)
+                    .foregroundStyle(Color.nwebTextSecondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(PipesStyle.sourceBlue.opacity(0.10), in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius))
+
+                if step.inputMode == .selectedSteps {
+                    selectedInputChecklist(for: step)
+                }
+
+                InfoControlRow(
                     "Rolle",
                     message: ConsultantRole.allCases.map(\.detailedDescription).joined(separator: "\n\n")
                 ) {
@@ -203,6 +230,54 @@ struct InspectorRunView: View {
                 systemImage: "sidebar.right",
                 description: Text("Ziehe zuerst ein Operator-Modul auf den Pipe Canvas.")
             )
+        }
+    }
+
+    @ViewBuilder
+    private func selectedInputChecklist(for step: ConsultantStep) -> some View {
+        let candidates = previousSteps(before: step)
+        if candidates.isEmpty {
+            Text("Keine vorherigen Knoten verfügbar. Dieser Knoten nutzt aktuell nur Source und Auftrag.")
+                .font(.caption)
+                .foregroundStyle(Color.nwebTextSecondary)
+        } else {
+            VStack(alignment: .leading, spacing: 7) {
+                FieldLabel("Gezielte Eingangsknoten")
+                ForEach(candidates, id: \.step.id) { candidate in
+                    Toggle(isOn: Binding(
+                        get: { step.inputStepIds.contains(candidate.step.id) },
+                        set: { isOn in
+                            store.updateSelectedStep { selected in
+                                if isOn {
+                                    if !selected.inputStepIds.contains(candidate.step.id) {
+                                        selected.inputStepIds.append(candidate.step.id)
+                                    }
+                                } else {
+                                    selected.inputStepIds.removeAll { $0 == candidate.step.id }
+                                }
+                            }
+                        }
+                    )) {
+                        Text("\(candidate.index + 1). \(candidate.step.title.isEmpty ? "Unbenanntes Modul" : candidate.step.title)")
+                            .font(.caption)
+                            .foregroundStyle(Color.nwebTextPrimary)
+                    }
+                    .toggleStyle(.checkbox)
+                }
+            }
+            .padding(10)
+            .background(PipesStyle.sourceBlue.opacity(0.07), in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: NWEBTheme.smallRadius)
+                    .stroke(PipesStyle.sourceBlue.opacity(0.24))
+            )
+        }
+    }
+
+    private func previousSteps(before step: ConsultantStep) -> [(index: Int, step: ConsultantStep)] {
+        guard let selectedIndex = store.workflow.steps.firstIndex(where: { $0.id == step.id }) else { return [] }
+        return store.workflow.steps[..<selectedIndex].enumerated().map { offset, step in
+            (index: offset, step: step)
         }
     }
 

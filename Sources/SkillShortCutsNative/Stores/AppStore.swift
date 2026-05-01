@@ -39,6 +39,7 @@ final class AppStore: ObservableObject {
     private let workspaceWriter = RunWorkspaceWriter()
     private let gatekeeper = GatekeeperService()
     private var libraryItemsByID: [String: LibraryItem] = [:]
+    private let maxParallelStepRuns = 3
     private var currentReviewIndex: Int?
     private var activeRunSessionID: UUID?
     private var runActionTask: Task<Void, Never>?
@@ -242,6 +243,10 @@ final class AppStore: ObservableObject {
                 )
             ]
         )
+        if workflow.steps.indices.contains(0) { workflow.steps[0].inputMode = .sourceOnly }
+        if workflow.steps.indices.contains(1) { workflow.steps[1].inputMode = .previous }
+        if workflow.steps.indices.contains(2) { workflow.steps[2].inputMode = .allPrevious }
+        if workflow.steps.indices.contains(3) { workflow.steps[3].inputMode = .allPrevious }
         selectStep(workflow.steps.first?.id)
         runSteps = []
         runLog = []
@@ -256,6 +261,7 @@ final class AppStore: ObservableObject {
             title: item.displayName,
             skillId: item.id,
             personaId: nil,
+            inputMode: workflow.steps.isEmpty ? .sourceOnly : .previous,
             role: .lead,
             taskText: item.summary.isEmpty ? item.title : item.summary,
             outputType: inferOutputType(item),
@@ -489,6 +495,7 @@ final class AppStore: ObservableObject {
             )
         }
         runLog = ["Run-Arbeitsverzeichnis: \(currentRunDirectory)"]
+        runLog.append("Pipe-Scheduler: bis zu \(maxParallelStepRuns) voneinander unabhängige Module parallel.")
         runLog.append(gatekeeperReport.summary)
         let sessionID = UUID()
         activeRunSessionID = sessionID
@@ -610,6 +617,9 @@ final class AppStore: ObservableObject {
         else { return }
         runSteps[index].feedback = feedback
         saveReview(index: index, decision: "redo", feedback: feedback)
+        runSteps[index].status = .pending
+        runSteps[index].error = ""
+        resetDependentRunState(of: index)
         currentReviewIndex = nil
         await continueRun(from: index, sessionID: sessionID)
     }
@@ -638,82 +648,213 @@ final class AppStore: ObservableObject {
             }
         }
 
-        for index in startIndex..<workflow.steps.count {
-            guard isActiveRun(sessionID) else { return }
-            let step = workflow.steps[index]
-            guard let skill = item(id: step.skillId) else {
-                mark(index: index, status: .failed, error: "Skill fehlt: \(step.skillId)")
+        while isActiveRun(sessionID) {
+            if let reviewIndex = pendingReviewIndex {
+                currentReviewIndex = reviewIndex
                 return
             }
 
-            let persona = item(id: step.personaId)
-            let previousOutput = currentOutput(index: index, step: step)
-            runSteps[index].status = .running
-            runSteps[index].attempt += 1
-            runSteps[index].error = ""
-            runLog.append("Schritt \(index + 1) gestartet: \(step.title)")
+            let readyIndices = workflow.steps.indices.filter { index in
+                guard runSteps.indices.contains(index), runSteps[index].status == .pending else { return false }
+                if index < startIndex { return false }
+                return dependenciesSatisfied(for: index)
+            }
+
+            if readyIndices.isEmpty {
+                if runSteps.allSatisfy({ $0.status.isCompletedForDependency }) {
+                    break
+                }
+                if runSteps.contains(where: { $0.status == .failed }) {
+                    activeRunSessionID = nil
+                    return
+                }
+                let waiting = runSteps.indices
+                    .filter { runSteps[$0].status == .pending }
+                    .map { "\(runSteps[$0].index + 1). \(runSteps[$0].title)" }
+                    .joined(separator: ", ")
+                let message = waiting.isEmpty
+                    ? "Pipe wartet auf Freigabe oder Abschluss."
+                    : "Pipe kann nicht weiterlaufen, weil Eingänge fehlen: \(waiting)"
+                runLog.append(message)
+                errorMessage = message
+                activeRunSessionID = nil
+                return
+            }
+
+            let batch = Array(readyIndices.prefix(maxParallelStepRuns))
+            runLog.append("Scheduler startet parallel: \(batch.map { "\($0 + 1)" }.joined(separator: ", ")).")
+            let preparedRuns = batch.compactMap { prepareStepRun(index: $0, library: library, folderContext: folderContext) }
+            guard !preparedRuns.isEmpty else { return }
+
+            let results = await executePreparedRuns(preparedRuns, sessionID: sessionID)
+            for result in results.sorted(by: { $0.index < $1.index }) {
+                guard isActiveRun(sessionID) else { return }
+                await handleStepResult(result, library: library)
+            }
+        }
+
+        if isActiveRun(sessionID) {
+            completeRun()
+        }
+    }
+
+    private func prepareStepRun(index: Int, library: ConsultantLibrary, folderContext: String) -> PreparedStepRun? {
+        guard workflow.steps.indices.contains(index), runSteps.indices.contains(index) else { return nil }
+        let step = workflow.steps[index]
+        guard let skill = item(id: step.skillId) else {
+            mark(index: index, status: .failed, error: "Skill fehlt: \(step.skillId)")
+            return nil
+        }
+
+        let persona = item(id: step.personaId)
+        let previousOutput = currentOutput(index: index, step: step)
+        let dependencyIndices = workflow.dependencyIndices(for: index)
+        runSteps[index].status = .running
+        runSteps[index].attempt += 1
+        runSteps[index].error = ""
+        runLog.append("Knoten \(index + 1) gestartet: \(step.title)")
+        appendAuditEvent(
+            event: "STEP_STARTED",
+            ref: step.id,
+            agent: step.title,
+            data: [
+                "step_index": "\(index + 1)",
+                "attempt": "\(runSteps[index].attempt)",
+                "role": step.role.displayName,
+                "quality_gate": step.qualityGate.rawValue,
+                "skill_id": step.skillId,
+                "persona_id": step.personaId ?? "",
+                "input_mode": step.inputMode.rawValue,
+                "dependency_indices": dependencyIndices.map { "\($0 + 1)" }.joined(separator: ","),
+                "dependency_step_ids": dependencyIndices.map { workflow.steps[$0].id }.joined(separator: ",")
+            ]
+        )
+        persistRunState()
+
+        let prompts = promptBuilder.buildStepPrompt(
+            library: library,
+            workflow: workflow,
+            step: step,
+            stepIndex: index,
+            skill: skill,
+            persona: persona,
+            previousArtifacts: currentArtifacts(for: index),
+            folderContext: folderContext,
+            redoFeedback: runSteps[index].feedback,
+            currentOutput: previousOutput
+        )
+        let llmRequest = request(for: step, system: prompts.system, user: prompts.user)
+        runLog.append("LLM Request: \(llmRequest.provider.label) · \(llmRequest.model) · \(prompts.system.count + prompts.user.count) Zeichen Prompt.")
+        appendAuditEvent(
+            event: "LLM_REQUEST_SENT",
+            ref: step.id,
+            agent: step.title,
+            data: [
+                "step_index": "\(index + 1)",
+                "attempt": "\(runSteps[index].attempt)",
+                "provider": llmRequest.provider.rawValue,
+                "model": llmRequest.model,
+                "system_chars": "\(prompts.system.count)",
+                "user_chars": "\(prompts.user.count)"
+            ]
+        )
+        savePrompt(
+            index: index,
+            step: step,
+            system: prompts.system,
+            user: prompts.user,
+            feedback: runSteps[index].feedback,
+            previousOutput: previousOutput
+        )
+        return PreparedStepRun(index: index, step: step, request: llmRequest)
+    }
+
+    private func executePreparedRuns(_ preparedRuns: [PreparedStepRun], sessionID: UUID) async -> [StepRunResult] {
+        let client = llmClient
+        return await withTaskGroup(of: StepRunResult.self, returning: [StepRunResult].self) { group in
+            for prepared in preparedRuns {
+                group.addTask {
+                    do {
+                        let output = try await client.complete(prepared.request)
+                        return StepRunResult(index: prepared.index, step: prepared.step, output: output, error: nil)
+                    } catch {
+                        return StepRunResult(index: prepared.index, step: prepared.step, output: "", error: error.localizedDescription)
+                    }
+                }
+            }
+
+            var results: [StepRunResult] = []
+            for await result in group {
+                if !isActiveRun(sessionID) { break }
+                results.append(result)
+            }
+            return results
+        }
+    }
+
+    private func handleStepResult(_ result: StepRunResult, library: ConsultantLibrary) async {
+        let index = result.index
+        let step = result.step
+        guard runSteps.indices.contains(index), workflow.steps.indices.contains(index) else { return }
+
+        if let error = result.error {
+            mark(index: index, status: .failed, error: error)
+            return
+        }
+
+        runLog.append("LLM Antwort fuer Knoten \(index + 1): \(result.output.count) Zeichen.")
+        runSteps[index].output = result.output
+        saveOutput(index: index, step: step)
+
+        switch step.qualityGate {
+        case .manual, .required:
+            runSteps[index].status = .needsReview
+            if currentReviewIndex == nil {
+                currentReviewIndex = index
+            }
+            runLog.append("QS wartet auf Freigabe fuer Knoten \(index + 1).")
             appendAuditEvent(
-                event: "STEP_STARTED",
+                event: "REVIEW_REQUIRED",
                 ref: step.id,
                 agent: step.title,
                 data: [
                     "step_index": "\(index + 1)",
                     "attempt": "\(runSteps[index].attempt)",
-                    "role": step.role.displayName,
-                    "quality_gate": step.qualityGate.rawValue,
-                    "skill_id": step.skillId,
-                    "persona_id": step.personaId ?? ""
+                    "quality_gate": step.qualityGate.rawValue
                 ]
             )
-            persistRunState()
-
+            saveOutput(index: index, step: step)
+        case .auto:
+            let quality = promptBuilder.buildQualityPrompt(
+                workflow: workflow,
+                step: step,
+                lector: library.lector,
+                output: result.output
+            )
+            let qualityRequest = request(for: step, system: quality.system, user: quality.user)
+            runLog.append("QS Request: \(qualityRequest.provider.label) · \(qualityRequest.model) · \(quality.system.count + quality.user.count) Zeichen Prompt.")
+            appendAuditEvent(
+                event: "QS_STARTED",
+                ref: step.id,
+                agent: step.title,
+                data: [
+                    "step_index": "\(index + 1)",
+                    "attempt": "\(runSteps[index].attempt)",
+                    "provider": qualityRequest.provider.rawValue,
+                    "model": qualityRequest.model
+                ]
+            )
             do {
-                let prompts = promptBuilder.buildStepPrompt(
-                    library: library,
-                    workflow: workflow,
-                    step: step,
-                    stepIndex: index,
-                    skill: skill,
-                    persona: persona,
-                    previousArtifacts: currentArtifacts(upTo: index),
-                    folderContext: folderContext,
-                    redoFeedback: runSteps[index].feedback,
-                    currentOutput: previousOutput
-                )
-                let llmRequest = request(for: step, system: prompts.system, user: prompts.user)
-                runLog.append("LLM Request: \(llmRequest.provider.label) · \(llmRequest.model) · \(prompts.system.count + prompts.user.count) Zeichen Prompt.")
-                appendAuditEvent(
-                    event: "LLM_REQUEST_SENT",
-                    ref: step.id,
-                    agent: step.title,
-                    data: [
-                        "step_index": "\(index + 1)",
-                        "attempt": "\(runSteps[index].attempt)",
-                        "provider": llmRequest.provider.rawValue,
-                        "model": llmRequest.model,
-                        "system_chars": "\(prompts.system.count)",
-                        "user_chars": "\(prompts.user.count)"
-                    ]
-                )
-                savePrompt(
-                    index: index,
-                    step: step,
-                    system: prompts.system,
-                    user: prompts.user,
-                    feedback: runSteps[index].feedback,
-                    previousOutput: previousOutput
-                )
-                let output = try await llmClient.complete(llmRequest)
-                guard isActiveRun(sessionID), runSteps.indices.contains(index) else { return }
-                runLog.append("LLM Antwort fuer Schritt \(index + 1): \(output.count) Zeichen.")
-                runSteps[index].output = output
-                saveOutput(index: index, step: step)
-
-                switch step.qualityGate {
-                case .manual, .required:
+                let report = try await llmClient.complete(qualityRequest)
+                runLog.append("QS Antwort fuer Knoten \(index + 1): \(report.count) Zeichen.")
+                runSteps[index].qualityReport = report
+                saveQuality(index: index, step: step, system: quality.system, user: quality.user)
+                if report.range(of: #"DECISION:\s*REVISE"#, options: [.regularExpression, .caseInsensitive]) != nil {
                     runSteps[index].status = .needsReview
-                    currentReviewIndex = index
-                    runLog.append("QS wartet auf Freigabe fuer Schritt \(index + 1).")
+                    if currentReviewIndex == nil {
+                        currentReviewIndex = index
+                    }
+                    runLog.append("Auto-QS verlangt Nacharbeit fuer Knoten \(index + 1).")
                     appendAuditEvent(
                         event: "REVIEW_REQUIRED",
                         ref: step.id,
@@ -721,93 +862,49 @@ final class AppStore: ObservableObject {
                         data: [
                             "step_index": "\(index + 1)",
                             "attempt": "\(runSteps[index].attempt)",
-                            "quality_gate": step.qualityGate.rawValue
+                            "quality_gate": step.qualityGate.rawValue,
+                            "reason": "AUTO_QS_REVISE"
                         ]
                     )
-                    saveOutput(index: index, step: step)
+                    saveQuality(index: index, step: step, system: quality.system, user: quality.user)
                     return
-                case .auto:
-                    let quality = promptBuilder.buildQualityPrompt(
-                        workflow: workflow,
-                        step: step,
-                        lector: library.lector,
-                        output: output
-                    )
-                    let qualityRequest = request(for: step, system: quality.system, user: quality.user)
-                    runLog.append("QS Request: \(qualityRequest.provider.label) · \(qualityRequest.model) · \(quality.system.count + quality.user.count) Zeichen Prompt.")
-                    appendAuditEvent(
-                        event: "QS_STARTED",
-                        ref: step.id,
-                        agent: step.title,
-                        data: [
-                            "step_index": "\(index + 1)",
-                            "attempt": "\(runSteps[index].attempt)",
-                            "provider": qualityRequest.provider.rawValue,
-                            "model": qualityRequest.model
-                        ]
-                    )
-                    let report = try await llmClient.complete(qualityRequest)
-                    guard isActiveRun(sessionID), runSteps.indices.contains(index) else { return }
-                    runLog.append("QS Antwort fuer Schritt \(index + 1): \(report.count) Zeichen.")
-                    runSteps[index].qualityReport = report
-                    saveQuality(index: index, step: step, system: quality.system, user: quality.user)
-                    if report.range(of: #"DECISION:\s*REVISE"#, options: [.regularExpression, .caseInsensitive]) != nil {
-                        runSteps[index].status = .needsReview
-                        currentReviewIndex = index
-                        runLog.append("Auto-QS verlangt Nacharbeit fuer Schritt \(index + 1).")
-                        appendAuditEvent(
-                            event: "REVIEW_REQUIRED",
-                            ref: step.id,
-                            agent: step.title,
-                            data: [
-                                "step_index": "\(index + 1)",
-                                "attempt": "\(runSteps[index].attempt)",
-                                "quality_gate": step.qualityGate.rawValue,
-                                "reason": "AUTO_QS_REVISE"
-                            ]
-                        )
-                        saveQuality(index: index, step: step, system: quality.system, user: quality.user)
-                        return
-                    }
-                    runSteps[index].status = .done
-                    runLog.append("Auto-QS bestanden fuer Schritt \(index + 1).")
-                    saveQuality(index: index, step: step, system: quality.system, user: quality.user)
-                    appendStepCompleted(index: index, step: step)
-                case .none:
-                    runSteps[index].status = .done
-                    runLog.append("Schritt \(index + 1) abgeschlossen.")
-                    saveOutput(index: index, step: step)
-                    appendStepCompleted(index: index, step: step)
                 }
+                runSteps[index].status = .done
+                runLog.append("Auto-QS bestanden fuer Knoten \(index + 1).")
+                saveQuality(index: index, step: step, system: quality.system, user: quality.user)
+                appendStepCompleted(index: index, step: step)
             } catch {
-                guard isActiveRun(sessionID) else { return }
                 mark(index: index, status: .failed, error: error.localizedDescription)
-                return
             }
+        case .none:
+            runSteps[index].status = .done
+            runLog.append("Knoten \(index + 1) abgeschlossen.")
+            saveOutput(index: index, step: step)
+            appendStepCompleted(index: index, step: step)
         }
+    }
 
-        if isActiveRun(sessionID) {
-            runLog.append("Workflow abgeschlossen.")
-            if let runDirectoryURL {
-                do {
-                    try workspaceWriter.sealAuditChain(
-                        runDirectory: runDirectoryURL,
-                        status: "completed",
-                        reason: "Workflow completed."
-                    )
-                    try workspaceWriter.writeAuditManifest(
-                        runDirectory: runDirectoryURL,
-                        workflow: workflow,
-                        runSteps: runSteps,
-                        gatekeeperReport: gatekeeperReport
-                    )
-                } catch {
-                    runLog.append("Audit-Seal Fehler: \(error.localizedDescription)")
-                }
+    private func completeRun() {
+        runLog.append("Pipe abgeschlossen.")
+        if let runDirectoryURL {
+            do {
+                try workspaceWriter.sealAuditChain(
+                    runDirectory: runDirectoryURL,
+                    status: "completed",
+                    reason: "Pipe completed."
+                )
+                try workspaceWriter.writeAuditManifest(
+                    runDirectory: runDirectoryURL,
+                    workflow: workflow,
+                    runSteps: runSteps,
+                    gatekeeperReport: gatekeeperReport
+                )
+            } catch {
+                runLog.append("Audit-Seal Fehler: \(error.localizedDescription)")
             }
-            isRunning = false
-            activeRunSessionID = nil
         }
+        isRunning = false
+        activeRunSessionID = nil
     }
 
     private func request(for step: ConsultantStep, system: String, user: String) -> LLMRequest {
@@ -884,6 +981,29 @@ final class AppStore: ObservableObject {
         }
     }
 
+    private func currentArtifacts(for index: Int) -> [StepArtifact] {
+        let dependencyIndices = workflow.dependencyIndices(for: index)
+        if let runDirectoryURL {
+            return workspaceWriter.currentArtifacts(
+                runDirectory: runDirectoryURL,
+                steps: workflow.steps,
+                indices: dependencyIndices
+            )
+        }
+
+        return dependencyIndices.compactMap { dependencyIndex in
+            guard runSteps.indices.contains(dependencyIndex),
+                  runSteps[dependencyIndex].status.isCompletedForDependency,
+                  !runSteps[dependencyIndex].output.trimmed.isEmpty
+            else { return nil }
+            return StepArtifact(
+                title: runSteps[dependencyIndex].title,
+                path: "In-Memory: \(runSteps[dependencyIndex].id)",
+                content: runSteps[dependencyIndex].output
+            )
+        }
+    }
+
     private func currentArtifacts(upTo index: Int) -> [StepArtifact] {
         if let runDirectoryURL {
             return workspaceWriter.currentArtifacts(
@@ -906,6 +1026,41 @@ final class AppStore: ObservableObject {
         }
         guard runSteps.indices.contains(index) else { return "" }
         return runSteps[index].output
+    }
+
+    private func dependenciesSatisfied(for index: Int) -> Bool {
+        workflow.dependencyIndices(for: index).allSatisfy { dependencyIndex in
+            runSteps.indices.contains(dependencyIndex)
+                && runSteps[dependencyIndex].status.isCompletedForDependency
+        }
+    }
+
+    private func resetDependentRunState(of index: Int) {
+        let dependents = workflow.transitiveDependentIndices(of: index)
+        guard !dependents.isEmpty else {
+            persistRunState()
+            return
+        }
+        for dependentIndex in dependents where runSteps.indices.contains(dependentIndex) {
+            runSteps[dependentIndex].status = .pending
+            runSteps[dependentIndex].attempt = 0
+            runSteps[dependentIndex].output = ""
+            runSteps[dependentIndex].qualityReport = ""
+            runSteps[dependentIndex].feedback = ""
+            runSteps[dependentIndex].error = ""
+        }
+        appendAuditEvent(
+            event: "DOWNSTREAM_INVALIDATED",
+            ref: workflow.steps.indices.contains(index) ? workflow.steps[index].id : nil,
+            agent: "SkillShortCuts",
+            data: [
+                "source_index": "\(index + 1)",
+                "invalidated_indices": dependents.map { "\($0 + 1)" }.joined(separator: ","),
+                "invalidated_step_ids": dependents.map { workflow.steps[$0].id }.joined(separator: ",")
+            ]
+        )
+        runLog.append("Redo invalidiert abhängige Knoten: \(dependents.map { "\($0 + 1)" }.joined(separator: ", ")).")
+        persistRunState()
     }
 
     private func saveQuality(index: Int, step: ConsultantStep, system: String, user: String) {
@@ -1099,4 +1254,28 @@ private extension String {
         }
         return nil
     }
+}
+
+private extension RunStatus {
+    var isCompletedForDependency: Bool {
+        switch self {
+        case .approved, .done:
+            return true
+        case .idle, .pending, .running, .needsReview, .failed:
+            return false
+        }
+    }
+}
+
+private struct PreparedStepRun {
+    let index: Int
+    let step: ConsultantStep
+    let request: LLMRequest
+}
+
+private struct StepRunResult {
+    let index: Int
+    let step: ConsultantStep
+    let output: String
+    let error: String?
 }

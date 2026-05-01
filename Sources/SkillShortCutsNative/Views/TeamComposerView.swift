@@ -6,6 +6,8 @@ struct TeamComposerView: View {
     @State private var isDropTarget = false
 
     var body: some View {
+        let graph = PipeCanvasGraph(workflow: store.workflow)
+
         VStack(spacing: 0) {
             header
             Divider()
@@ -14,16 +16,19 @@ struct TeamComposerView: View {
                     if store.workflow.steps.isEmpty {
                         emptyDropZone
                     } else {
-                        ForEach(Array(store.workflow.steps.enumerated()), id: \.element.id) { index, step in
-                            ConsultantCard(index: index, step: step)
-                            if index < store.workflow.steps.count - 1 {
-                                PipeConnector(
-                                    active: isActiveConnection(after: step),
-                                    color: connectionColor(after: step)
-                                )
+                        PipeSourceStub()
+
+                        ForEach(Array(graph.levels.enumerated()), id: \.offset) { levelIndex, level in
+                            PipeLevelConnector(level: levelIndex, parallelCount: level.count)
+                            HStack(alignment: .top, spacing: 16) {
+                                ForEach(level, id: \.step.id) { node in
+                                    ConsultantCard(index: node.index, step: node.step)
+                                        .frame(maxWidth: .infinity)
+                                }
                             }
                         }
-                        PipeOutputNode(runComplete: store.runSteps.last?.status == .done)
+
+                        PipeOutputNode(runComplete: pipeOutputIsComplete)
                         addDropZone
                     }
                 }
@@ -47,6 +52,10 @@ struct TeamComposerView: View {
             color: PipesStyle.outputTeal,
             trailing: "\(store.workflow.steps.count) Module"
         )
+    }
+
+    private var pipeOutputIsComplete: Bool {
+        !store.runSteps.isEmpty && store.runSteps.allSatisfy { statusIsOutputComplete($0.status) }
     }
 
     private var emptyDropZone: some View {
@@ -124,16 +133,41 @@ struct TeamComposerView: View {
         }
     }
 
-    private func isActiveConnection(after step: ConsultantStep) -> Bool {
-        guard let index = store.runSteps.firstIndex(where: { $0.id == step.id }) else { return false }
-        return store.runSteps.indices.contains(index + 1)
-            && store.runSteps[index].status != .pending
-            && store.runSteps[index + 1].status != .pending
-    }
+}
 
-    private func connectionColor(after step: ConsultantStep) -> Color {
-        guard let runStep = store.runSteps.first(where: { $0.id == step.id }) else { return PipesStyle.pipeLine }
-        return PipesStyle.statusColor(for: runStep.status)
+private struct PipeCanvasGraph {
+    let levels: [[(index: Int, step: ConsultantStep)]]
+
+    init(workflow: ShortcutWorkflow) {
+        levels = workflow.executionLevels().map { level in
+            level.map { index in
+                (index: index, step: workflow.steps[index])
+            }
+        }
+    }
+}
+
+private struct PipeLevelConnector: View {
+    let level: Int
+    let parallelCount: Int
+
+    var body: some View {
+        VStack(spacing: 6) {
+            PipeConnector(active: false, color: PipesStyle.pipeLine)
+            HStack(spacing: 8) {
+                Text(level == 0 ? "Source feeds modules" : "join / continue")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(Color.nwebTextSecondary)
+                if parallelCount > 1 {
+                    Text("\(parallelCount) parallel")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(PipesStyle.outputTeal)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(PipesStyle.outputTeal.opacity(0.12), in: Capsule())
+                }
+            }
+        }
     }
 }
 
@@ -257,6 +291,11 @@ struct ConsultantCard: View {
                             .lineLimit(2)
                     }
 
+                    PipeInputSummary(
+                        mode: step.inputMode,
+                        dependencies: dependencyLabels(for: index)
+                    )
+
                     HStack(spacing: 8) {
                         Chip(
                             title: "OPERATOR",
@@ -379,6 +418,57 @@ struct ConsultantCard: View {
             }
         }
     }
+
+    private func dependencyLabels(for index: Int) -> [String] {
+        workflowDependencyIndices(for: index).map { dependencyIndex in
+            guard store.workflow.steps.indices.contains(dependencyIndex) else { return "Knoten \(dependencyIndex + 1)" }
+            let title = store.workflow.steps[dependencyIndex].title
+            return "\(dependencyIndex + 1). \(title.isEmpty ? "Modul" : title)"
+        }
+    }
+
+    private func workflowDependencyIndices(for index: Int) -> [Int] {
+        store.workflow.dependencyIndices(for: index)
+    }
+}
+
+private struct PipeInputSummary: View {
+    let mode: StepInputMode
+    let dependencies: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: "point.topleft.down.curvedto.point.bottomright.up")
+                    .foregroundStyle(PipesStyle.sourceBlue)
+                Text(mode.label)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(PipesStyle.sourceBlue)
+                Spacer()
+                Text(dependencies.isEmpty ? "Source" : "\(dependencies.count) Inputs")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(Color.nwebTextSecondary)
+            }
+
+            if dependencies.isEmpty {
+                Text("Input: Source + Auftrag + Datenkontext")
+                    .font(.caption2)
+                    .foregroundStyle(Color.nwebTextSecondary)
+                    .lineLimit(1)
+            } else {
+                Text("Input: \(dependencies.joined(separator: " · "))")
+                    .font(.caption2)
+                    .foregroundStyle(Color.nwebTextSecondary)
+                    .lineLimit(2)
+            }
+        }
+        .padding(8)
+        .background(PipesStyle.sourceBlue.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(PipesStyle.sourceBlue.opacity(0.22))
+        )
+    }
 }
 
 private extension RunStatus {
@@ -427,4 +517,13 @@ func loadPayload(from providers: [NSItemProvider], _ action: @escaping (String) 
         }
     }
     return true
+}
+
+private func statusIsOutputComplete(_ status: RunStatus) -> Bool {
+    switch status {
+    case .approved, .done:
+        return true
+    case .idle, .pending, .running, .needsReview, .failed:
+        return false
+    }
 }
