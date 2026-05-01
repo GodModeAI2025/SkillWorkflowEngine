@@ -10,6 +10,7 @@ struct DataLibraryView: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    modeSection
                     workflowSection
                     sourceSection
                     templateSection
@@ -18,14 +19,42 @@ struct DataLibraryView: View {
                 .padding(14)
             }
         }
-        .background(Color.enbwSidebar)
+        .background(Color.nwebSidebar)
+    }
+
+    private var modeSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Workflow-Modus", systemImage: "slider.horizontal.3")
+                .font(.nwebHeadline)
+                .foregroundStyle(Color.nwebAccent)
+
+            InfoControlRow(
+                "Workflow-Modus",
+                message: WorkflowMode.allCases.map { "\($0.label): \($0.description)" }.joined(separator: "\n\n")
+            ) {
+                Picker("Workflow-Modus", selection: $store.workflowMode) {
+                    ForEach(WorkflowMode.allCases) { mode in
+                        Text(mode.label).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: store.workflowMode) { _, _ in
+                    store.saveSettings()
+                }
+            }
+
+            Text(store.workflowMode.description)
+                .font(.caption)
+                .foregroundStyle(Color.nwebTextSecondary)
+        }
+        .nwebCard()
     }
 
     private var workflowSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label("Auftrag & Daten", systemImage: "tray.full")
-                .font(.enbwHeadline)
-                .foregroundStyle(Color.enbwAccent)
+                .font(.nwebHeadline)
+                .foregroundStyle(Color.nwebAccent)
 
             TextField("Workflow-Name", text: Binding(
                 get: { store.workflow.name },
@@ -34,6 +63,7 @@ struct DataLibraryView: View {
                     store.markWorkflowEdited()
                 }
             ))
+            .disabled(store.workflowMode == .audit)
 
             HStack {
                 TextField("Ordner oder Repo", text: Binding(
@@ -50,10 +80,11 @@ struct DataLibraryView: View {
                 }
                 .help("Ordner wählen")
             }
+            .disabled(store.workflowMode == .audit)
 
             Text("Arbeitsverzeichnis")
                 .font(.caption)
-                .foregroundStyle(Color.enbwTextSecondary)
+                .foregroundStyle(Color.nwebTextSecondary)
             HStack {
                 TextField("Zwischenspeicher für Run-Stände", text: $store.workDirectoryPath)
                     .onSubmit {
@@ -66,10 +97,58 @@ struct DataLibraryView: View {
                 }
                 .help("Arbeitsverzeichnis wählen")
             }
+            .disabled(store.workflowMode == .audit)
 
-            Text("Globaler Auftrag")
+            Group {
+                Text("Ziel")
+                    .font(.caption)
+                    .foregroundStyle(Color.nwebTextSecondary)
+                TextField("Was soll erreicht werden?", text: Binding(
+                    get: { store.workflow.input.goal },
+                    set: { newValue in
+                        store.workflow.input.goal = newValue
+                        store.markWorkflowEdited()
+                    }
+                ))
+
+                Text("Kontext")
+                    .font(.caption)
+                    .foregroundStyle(Color.nwebTextSecondary)
+                TextField("Einkauf, Architekturentscheidung, Compliance-Prüfung...", text: Binding(
+                    get: { store.workflow.input.context },
+                    set: { newValue in
+                        store.workflow.input.context = newValue
+                        store.markWorkflowEdited()
+                    }
+                ))
+
+                Text("Gewünschtes Ergebnis")
+                    .font(.caption)
+                    .foregroundStyle(Color.nwebTextSecondary)
+                TextField("Entscheidungsvorlage, Review, Folienstruktur...", text: Binding(
+                    get: { store.workflow.input.desiredResult },
+                    set: { newValue in
+                        store.workflow.input.desiredResult = newValue
+                        store.markWorkflowEdited()
+                    }
+                ))
+
+                Text("Kriterien")
+                    .font(.caption)
+                    .foregroundStyle(Color.nwebTextSecondary)
+                TextField("Kosten, Sicherheit, Strategie-Fit, Umsetzbarkeit...", text: Binding(
+                    get: { store.workflow.input.criteria },
+                    set: { newValue in
+                        store.workflow.input.criteria = newValue
+                        store.markWorkflowEdited()
+                    }
+                ))
+            }
+            .disabled(store.workflowMode == .audit)
+
+            Text("Freitext-Zusatz")
                 .font(.caption)
-                .foregroundStyle(Color.enbwTextSecondary)
+                .foregroundStyle(Color.nwebTextSecondary)
             TextEditor(text: Binding(
                 get: { store.workflow.input.prompt },
                 set: { newValue in
@@ -78,16 +157,17 @@ struct DataLibraryView: View {
                 }
             ))
             .frame(minHeight: 92)
-            .enbwInputBackground()
+            .nwebInputBackground()
+            .disabled(store.workflowMode == .audit)
         }
-        .enbwCard()
+        .nwebCard()
     }
 
     private var sourceSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label("AIConsultant", systemImage: "books.vertical")
-                .font(.enbwHeadline)
-                .foregroundStyle(Color.enbwAccent)
+                .font(.nwebHeadline)
+                .foregroundStyle(Color.nwebAccent)
 
             HStack {
                 TextField("AIConsultant-Pfad", text: $store.libraryPath)
@@ -99,21 +179,22 @@ struct DataLibraryView: View {
             if let library = store.library {
                 Text("\(library.items.count) Bausteine · \(library.templates.count) Vorlagen")
                     .font(.caption)
-                    .foregroundStyle(Color.enbwTextSecondary)
+                    .foregroundStyle(Color.nwebTextSecondary)
             } else {
                 Text(store.errorMessage.isEmpty ? "Bibliothek nicht geladen." : store.errorMessage)
                     .font(.caption)
-                    .foregroundStyle(Color.enbwTextSecondary)
+                    .foregroundStyle(Color.nwebTextSecondary)
             }
         }
-        .enbwCard()
+        .nwebCard()
+        .disabled(store.workflowMode != .edit)
     }
 
     private var templateSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Beratungsworkflow-Vorlagen", systemImage: "rectangle.stack")
-                .font(.enbwHeadline)
-                .foregroundStyle(Color.enbwAccent)
+                .font(.nwebHeadline)
+                .foregroundStyle(Color.nwebAccent)
 
             InfoControlRow(
                 "Vorlage",
@@ -141,14 +222,15 @@ struct DataLibraryView: View {
             .buttonStyle(.borderedProminent)
             .disabled(store.library == nil)
         }
-        .enbwCard()
+        .nwebCard()
+        .disabled(store.workflowMode != .edit)
     }
 
     private var librarySection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label("Bausteine", systemImage: "person.3.sequence")
-                .font(.enbwHeadline)
-                .foregroundStyle(Color.enbwAccent)
+                .font(.nwebHeadline)
+                .foregroundStyle(Color.nwebAccent)
 
             TextField("Suchen: Architektur, ADR, Strategie...", text: $store.searchText)
                 .textFieldStyle(.roundedBorder)
@@ -171,7 +253,8 @@ struct DataLibraryView: View {
                 }
             }
         }
-        .enbwCard()
+        .nwebCard()
+        .disabled(store.workflowMode != .edit)
     }
 
     private var itemsForMode: [LibraryItem] {
@@ -235,25 +318,25 @@ struct LibraryRow: View {
                     .frame(width: 16)
                 Text(item.displayName)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.enbwTextPrimary)
+                    .foregroundStyle(Color.nwebTextPrimary)
                     .lineLimit(1)
                 Spacer()
                 Text(item.kind.label)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(Color.enbwTextSecondary)
+                    .foregroundStyle(Color.nwebTextSecondary)
             }
             if !item.summary.isEmpty {
                 Text(item.summary)
                     .font(.caption)
-                    .foregroundStyle(Color.enbwTextSecondary)
+                    .foregroundStyle(Color.nwebTextSecondary)
                     .lineLimit(3)
             }
         }
         .padding(10)
-        .background(Color.enbwBackgroundSecondary, in: RoundedRectangle(cornerRadius: EnBWTheme.smallRadius))
+        .background(Color.nwebBackgroundSecondary, in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius))
         .overlay(
-            RoundedRectangle(cornerRadius: EnBWTheme.smallRadius)
-                .stroke(Color.enbwBorder)
+            RoundedRectangle(cornerRadius: NWEBTheme.smallRadius)
+                .stroke(Color.nwebBorder)
         )
         .onDrag {
             NSItemProvider(object: item.dragPayload as NSString)
@@ -272,11 +355,11 @@ struct LibraryRow: View {
 
     private var accentColor: Color {
         switch item.kind {
-        case .personaSkill: return .enbwOrange
-        case .qualityGate: return .enbwSuccess
-        case .jobSkill: return .enbwAccent
-        case .consultingAgent: return .enbwAzure
-        case .rootSkill: return .enbwAccent
+        case .personaSkill: return .nwebOrange
+        case .qualityGate: return .nwebSuccess
+        case .jobSkill: return .nwebAccent
+        case .consultingAgent: return .nwebAzure
+        case .rootSkill: return .nwebAccent
         }
     }
 }

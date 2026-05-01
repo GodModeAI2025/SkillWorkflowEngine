@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 @MainActor
@@ -19,6 +20,8 @@ final class AppStore: ObservableObject {
     @Published var openAIKey = ""
     @Published var anthropicKey = ""
     @Published var theme: AppThemeMode = .system
+    @Published var workflowMode: WorkflowMode = .edit
+    @Published var debugModeEnabled = false
     @Published var workDirectoryPath = ""
     @Published var currentRunDirectory = ""
     @Published var runSteps: [RunStepState] = []
@@ -26,6 +29,7 @@ final class AppStore: ObservableObject {
     @Published var runLog: [String] = []
     @Published var errorMessage = ""
     @Published var promptPreview = PromptPreview()
+    @Published var gatekeeperReport = GatekeeperReport()
 
     private let loader = AIConsultantLibraryLoader()
     private let persistence = WorkflowPersistence()
@@ -33,7 +37,10 @@ final class AppStore: ObservableObject {
     private let promptBuilder = PromptBuilder()
     private let llmClient = LLMClient()
     private let workspaceWriter = RunWorkspaceWriter()
+    private let gatekeeper = GatekeeperService()
     private var currentReviewIndex: Int?
+    private var activeRunSessionID: UUID?
+    private var runActionTask: Task<Void, Never>?
 
     var selectedStep: ConsultantStep? {
         guard let selectedStepID else { return nil }
@@ -42,6 +49,30 @@ final class AppStore: ObservableObject {
 
     var hasCurrentPromptPreview: Bool {
         !promptPreview.isEmpty && promptPreview.stepID == selectedStepID
+    }
+
+    var hasReviewWaiting: Bool {
+        pendingReviewIndex != nil
+    }
+
+    var canUsePrimaryRunAction: Bool {
+        if isRunning { return false }
+        if hasReviewWaiting { return true }
+        return !workflow.steps.isEmpty
+    }
+
+    var primaryRunActionTitle: String {
+        if hasReviewWaiting { return "Freigeben & weiter" }
+        if isRunning { return "Läuft..." }
+        return "Ausführen"
+    }
+
+    var primaryRunActionIcon: String {
+        hasReviewWaiting ? "checkmark.circle.fill" : "play.fill"
+    }
+
+    var canAbortOrResetRun: Bool {
+        isRunning || hasReviewWaiting || !runSteps.isEmpty || !currentRunDirectory.trimmed.isEmpty
     }
 
     var hasOpenAIKey: Bool {
@@ -78,6 +109,8 @@ final class AppStore: ObservableObject {
         openAIKey = defaults.string(forKey: "openAIKey") ?? ""
         anthropicKey = defaults.string(forKey: "anthropicKey") ?? ""
         theme = AppThemeMode(rawValue: defaults.string(forKey: "theme") ?? "") ?? .system
+        workflowMode = WorkflowMode(rawValue: defaults.string(forKey: "workflowMode") ?? "") ?? .edit
+        debugModeEnabled = defaults.bool(forKey: "debugModeEnabled")
         workDirectoryPath = defaults.string(forKey: "workDirectoryPath") ?? workspaceWriter.defaultDirectory()
         libraryPath = defaults.string(forKey: "aiConsultantPath") ?? loader.firstAvailableSource()
         workflow.provider = provider
@@ -92,6 +125,8 @@ final class AppStore: ObservableObject {
         defaults.set(openAIKey, forKey: "openAIKey")
         defaults.set(anthropicKey, forKey: "anthropicKey")
         defaults.set(theme.rawValue, forKey: "theme")
+        defaults.set(workflowMode.rawValue, forKey: "workflowMode")
+        defaults.set(debugModeEnabled, forKey: "debugModeEnabled")
         defaults.set(workDirectoryPath, forKey: "workDirectoryPath")
         defaults.set(libraryPath, forKey: "aiConsultantPath")
         workflow.provider = provider
@@ -100,6 +135,7 @@ final class AppStore: ObservableObject {
     func markWorkflowEdited() {
         invalidatePromptPreview()
         invalidateRunContextForWorkflowEdit()
+        gatekeeperReport = GatekeeperReport()
     }
 
     func loadLibrary() async {
@@ -119,6 +155,7 @@ final class AppStore: ObservableObject {
         runSteps = []
         runLog = []
         currentRunDirectory = ""
+        gatekeeperReport = GatekeeperReport()
     }
 
     func saveWorkflow() {
@@ -133,12 +170,11 @@ final class AppStore: ObservableObject {
     }
 
     func newWorkflow() {
+        abortAndResetRun()
         workflow = ShortcutWorkflow()
         workflow.provider = provider
         selectStep(nil)
-        runSteps = []
-        runLog = []
-        currentRunDirectory = ""
+        gatekeeperReport = GatekeeperReport()
     }
 
     func loadDemoWorkflow() {
@@ -148,6 +184,10 @@ final class AppStore: ObservableObject {
             name: "Demo · Architekturberatung",
             input: WorkflowInput(
                 folderPath: FileManager.default.fileExists(atPath: folder) ? folder : "",
+                goal: "Projektordner aus Architektur- und Sicherheitsblick prüfen",
+                context: "Native macOS-App SkillShortCuts mit AIConsultant-Skills",
+                desiredResult: "Priorisierte Review-Ergebnisse, ADR-Vorschläge und PR-/Dokumentationslinie",
+                criteria: "Konkrete Dateipfade, klare Annahmen, nachvollziehbare Risiken, verwertbare nächste Schritte",
                 prompt: "Prüfe den Projektordner aus Sicht Software-Architektur. Finde Risiken, unklare Verantwortlichkeiten, ADR-Bedarf und schlage eine klare nächste PR-/Dokumentationslinie vor."
             ),
             provider: provider,
@@ -200,6 +240,7 @@ final class AppStore: ObservableObject {
         runSteps = []
         runLog = []
         currentRunDirectory = ""
+        gatekeeperReport = GatekeeperReport()
         refreshPromptPreview()
     }
 
@@ -309,7 +350,13 @@ final class AppStore: ObservableObject {
     func filteredItems(kind: LibraryItemKind? = nil) -> [LibraryItem] {
         guard let library else { return [] }
         let search = searchText.lowercased().trimmed
-        let prompt = workflow.input.prompt.lowercased()
+        let prompt = [
+            workflow.input.goal,
+            workflow.input.context,
+            workflow.input.desiredResult,
+            workflow.input.criteria,
+            workflow.input.prompt
+        ].joined(separator: " ").lowercased()
         return library.items
             .filter { item in
                 if let kind, item.kind != kind { return false }
@@ -374,8 +421,19 @@ final class AppStore: ObservableObject {
 
     func startRun() async {
         guard !workflow.steps.isEmpty else { return }
+        guard let library else {
+            errorMessage = RunnerError.missingLibrary.localizedDescription
+            return
+        }
         workflow.provider = provider
         saveSettings()
+        let gatekeeperFolderContext = contextBuilder.build(folderPath: workflow.input.folderPath, maxCharacters: 50_000)
+        gatekeeperReport = gatekeeper.evaluate(
+            workflow: workflow,
+            folderContext: gatekeeperFolderContext,
+            provider: provider,
+            hasProviderKey: provider == .openAI ? hasOpenAIKey : hasAnthropicKey
+        )
         do {
             currentRunDirectory = try workspaceWriter.prepareRunDirectory(
                 workDirectoryPath: workDirectoryPath,
@@ -383,6 +441,28 @@ final class AppStore: ObservableObject {
             ).path
             if let runDirectoryURL {
                 try workspaceWriter.saveRunPlan(workflow, in: runDirectoryURL)
+                try workspaceWriter.saveGatekeeperReport(gatekeeperReport, in: runDirectoryURL)
+                try workspaceWriter.initializeAuditChain(
+                    runDirectory: runDirectoryURL,
+                    workflow: workflow,
+                    library: library,
+                    provider: provider,
+                    openAIModel: openAIModel,
+                    anthropicModel: anthropicModel,
+                    gatekeeperReport: gatekeeperReport
+                )
+                try workspaceWriter.appendAuditEvent(
+                    runDirectory: runDirectoryURL,
+                    event: "GATEKEEPER_RUN",
+                    ref: workflow.id,
+                    agent: "Gatekeeper",
+                    data: [
+                        "overall": gatekeeperReport.overall.rawValue,
+                        "summary": gatekeeperReport.summary,
+                        "issue_count": "\(gatekeeperReport.issues.count)",
+                        "report_hash": fileHash(in: runDirectoryURL, relativePath: "gatekeeper-report.json")
+                    ]
+                )
             }
         } catch {
             errorMessage = "Arbeitsverzeichnis konnte nicht vorbereitet werden: \(error.localizedDescription)"
@@ -399,34 +479,145 @@ final class AppStore: ObservableObject {
             )
         }
         runLog = ["Run-Arbeitsverzeichnis: \(currentRunDirectory)"]
+        runLog.append(gatekeeperReport.summary)
+        let sessionID = UUID()
+        activeRunSessionID = sessionID
         currentReviewIndex = nil
         persistRunState()
-        await continueRun(from: 0)
+        await continueRun(from: 0, sessionID: sessionID)
+    }
+
+    func runGatekeeperCheck() {
+        let folderContext = contextBuilder.build(folderPath: workflow.input.folderPath, maxCharacters: 50_000)
+        gatekeeperReport = gatekeeper.evaluate(
+            workflow: workflow,
+            folderContext: folderContext,
+            provider: provider,
+            hasProviderKey: provider == .openAI ? hasOpenAIKey : hasAnthropicKey
+        )
+    }
+
+    func debugSnapshot(for runStep: RunStepState) -> StepDebugSnapshot? {
+        guard debugModeEnabled,
+              let runDirectoryURL,
+              workflow.steps.indices.contains(runStep.index)
+        else { return nil }
+
+        return workspaceWriter.debugSnapshot(
+            runDirectory: runDirectoryURL,
+            index: runStep.index,
+            step: workflow.steps[runStep.index],
+            runState: runStep
+        )
+    }
+
+    func currentAuditSummary() -> AuditChainSummary {
+        guard let runDirectoryURL else { return AuditChainSummary() }
+        return workspaceWriter.verifyAuditChain(runDirectory: runDirectoryURL)
+    }
+
+    func triggerPrimaryRunAction() {
+        guard canUsePrimaryRunAction else { return }
+        runActionTask?.cancel()
+        runActionTask = Task { await runPrimaryAction() }
+    }
+
+    func triggerStartRun() {
+        guard !workflow.steps.isEmpty, !isRunning else { return }
+        runActionTask?.cancel()
+        runActionTask = Task { await startRun() }
+    }
+
+    func triggerApproveCurrentStep() {
+        guard hasReviewWaiting, !isRunning else { return }
+        runActionTask?.cancel()
+        runActionTask = Task { await approveCurrentStep() }
+    }
+
+    func triggerRedoCurrentStep(feedback: String) {
+        guard hasReviewWaiting, !isRunning else { return }
+        runActionTask?.cancel()
+        runActionTask = Task { await redoCurrentStep(feedback: feedback) }
+    }
+
+    func runPrimaryAction() async {
+        if hasReviewWaiting {
+            await approveCurrentStep()
+        } else {
+            await startRun()
+        }
+    }
+
+    func abortAndResetRun() {
+        if let runDirectoryURL {
+            do {
+                try workspaceWriter.sealAuditChain(
+                    runDirectory: runDirectoryURL,
+                    status: "aborted",
+                    reason: "User aborted and reset the workflow run."
+                )
+                try workspaceWriter.writeAuditManifest(
+                    runDirectory: runDirectoryURL,
+                    workflow: workflow,
+                    runSteps: runSteps,
+                    gatekeeperReport: gatekeeperReport
+                )
+            } catch {
+                runLog.append("Audit-Abbruch konnte nicht geschrieben werden: \(error.localizedDescription)")
+            }
+        }
+        runActionTask?.cancel()
+        runActionTask = nil
+        activeRunSessionID = nil
+        currentReviewIndex = nil
+        isRunning = false
+        runSteps = []
+        runLog = []
+        currentRunDirectory = ""
+        gatekeeperReport = GatekeeperReport()
+        promptPreview = PromptPreview()
+        errorMessage = ""
     }
 
     func approveCurrentStep() async {
-        guard let index = currentReviewIndex, runSteps.indices.contains(index) else { return }
+        guard let index = pendingReviewIndex,
+              let sessionID = activeRunSessionID,
+              runSteps.indices.contains(index)
+        else { return }
         runSteps[index].status = .approved
         saveReview(index: index, decision: "approved", feedback: "")
+        if workflow.steps.indices.contains(index) {
+            appendStepCompleted(index: index, step: workflow.steps[index])
+        }
         currentReviewIndex = nil
-        await continueRun(from: index + 1)
+        await continueRun(from: index + 1, sessionID: sessionID)
     }
 
     func redoCurrentStep(feedback: String) async {
-        guard let index = currentReviewIndex, runSteps.indices.contains(index) else { return }
+        guard let index = pendingReviewIndex,
+              let sessionID = activeRunSessionID,
+              runSteps.indices.contains(index)
+        else { return }
         runSteps[index].feedback = feedback
         saveReview(index: index, decision: "redo", feedback: feedback)
         currentReviewIndex = nil
-        await continueRun(from: index)
+        await continueRun(from: index, sessionID: sessionID)
     }
 
-    private func continueRun(from startIndex: Int) async {
+    private func continueRun(from startIndex: Int, sessionID: UUID) async {
+        guard isActiveRun(sessionID) else { return }
         guard let library else {
             errorMessage = RunnerError.missingLibrary.localizedDescription
+            activeRunSessionID = nil
+            isRunning = false
             return
         }
         isRunning = true
-        defer { isRunning = false }
+        defer {
+            if isActiveRun(sessionID) {
+                isRunning = false
+            }
+        }
 
         let folderContext = contextBuilder.build(folderPath: workflow.input.folderPath)
         if let runDirectoryURL {
@@ -438,6 +629,7 @@ final class AppStore: ObservableObject {
         }
 
         for index in startIndex..<workflow.steps.count {
+            guard isActiveRun(sessionID) else { return }
             let step = workflow.steps[index]
             guard let skill = item(id: step.skillId) else {
                 mark(index: index, status: .failed, error: "Skill fehlt: \(step.skillId)")
@@ -450,6 +642,19 @@ final class AppStore: ObservableObject {
             runSteps[index].attempt += 1
             runSteps[index].error = ""
             runLog.append("Schritt \(index + 1) gestartet: \(step.title)")
+            appendAuditEvent(
+                event: "STEP_STARTED",
+                ref: step.id,
+                agent: step.title,
+                data: [
+                    "step_index": "\(index + 1)",
+                    "attempt": "\(runSteps[index].attempt)",
+                    "role": step.role.displayName,
+                    "quality_gate": step.qualityGate.rawValue,
+                    "skill_id": step.skillId,
+                    "persona_id": step.personaId ?? ""
+                ]
+            )
             persistRunState()
 
             do {
@@ -467,6 +672,19 @@ final class AppStore: ObservableObject {
                 )
                 let llmRequest = request(for: step, system: prompts.system, user: prompts.user)
                 runLog.append("LLM Request: \(llmRequest.provider.label) · \(llmRequest.model) · \(prompts.system.count + prompts.user.count) Zeichen Prompt.")
+                appendAuditEvent(
+                    event: "LLM_REQUEST_SENT",
+                    ref: step.id,
+                    agent: step.title,
+                    data: [
+                        "step_index": "\(index + 1)",
+                        "attempt": "\(runSteps[index].attempt)",
+                        "provider": llmRequest.provider.rawValue,
+                        "model": llmRequest.model,
+                        "system_chars": "\(prompts.system.count)",
+                        "user_chars": "\(prompts.user.count)"
+                    ]
+                )
                 savePrompt(
                     index: index,
                     step: step,
@@ -476,6 +694,7 @@ final class AppStore: ObservableObject {
                     previousOutput: previousOutput
                 )
                 let output = try await llmClient.complete(llmRequest)
+                guard isActiveRun(sessionID), runSteps.indices.contains(index) else { return }
                 runLog.append("LLM Antwort fuer Schritt \(index + 1): \(output.count) Zeichen.")
                 runSteps[index].output = output
                 saveOutput(index: index, step: step)
@@ -485,6 +704,16 @@ final class AppStore: ObservableObject {
                     runSteps[index].status = .needsReview
                     currentReviewIndex = index
                     runLog.append("QS wartet auf Freigabe fuer Schritt \(index + 1).")
+                    appendAuditEvent(
+                        event: "REVIEW_REQUIRED",
+                        ref: step.id,
+                        agent: step.title,
+                        data: [
+                            "step_index": "\(index + 1)",
+                            "attempt": "\(runSteps[index].attempt)",
+                            "quality_gate": step.qualityGate.rawValue
+                        ]
+                    )
                     saveOutput(index: index, step: step)
                     return
                 case .auto:
@@ -496,7 +725,19 @@ final class AppStore: ObservableObject {
                     )
                     let qualityRequest = request(for: step, system: quality.system, user: quality.user)
                     runLog.append("QS Request: \(qualityRequest.provider.label) · \(qualityRequest.model) · \(quality.system.count + quality.user.count) Zeichen Prompt.")
+                    appendAuditEvent(
+                        event: "QS_STARTED",
+                        ref: step.id,
+                        agent: step.title,
+                        data: [
+                            "step_index": "\(index + 1)",
+                            "attempt": "\(runSteps[index].attempt)",
+                            "provider": qualityRequest.provider.rawValue,
+                            "model": qualityRequest.model
+                        ]
+                    )
                     let report = try await llmClient.complete(qualityRequest)
+                    guard isActiveRun(sessionID), runSteps.indices.contains(index) else { return }
                     runLog.append("QS Antwort fuer Schritt \(index + 1): \(report.count) Zeichen.")
                     runSteps[index].qualityReport = report
                     saveQuality(index: index, step: step, system: quality.system, user: quality.user)
@@ -504,24 +745,59 @@ final class AppStore: ObservableObject {
                         runSteps[index].status = .needsReview
                         currentReviewIndex = index
                         runLog.append("Auto-QS verlangt Nacharbeit fuer Schritt \(index + 1).")
+                        appendAuditEvent(
+                            event: "REVIEW_REQUIRED",
+                            ref: step.id,
+                            agent: step.title,
+                            data: [
+                                "step_index": "\(index + 1)",
+                                "attempt": "\(runSteps[index].attempt)",
+                                "quality_gate": step.qualityGate.rawValue,
+                                "reason": "AUTO_QS_REVISE"
+                            ]
+                        )
                         saveQuality(index: index, step: step, system: quality.system, user: quality.user)
                         return
                     }
                     runSteps[index].status = .done
                     runLog.append("Auto-QS bestanden fuer Schritt \(index + 1).")
                     saveQuality(index: index, step: step, system: quality.system, user: quality.user)
+                    appendStepCompleted(index: index, step: step)
                 case .none:
                     runSteps[index].status = .done
                     runLog.append("Schritt \(index + 1) abgeschlossen.")
                     saveOutput(index: index, step: step)
+                    appendStepCompleted(index: index, step: step)
                 }
             } catch {
+                guard isActiveRun(sessionID) else { return }
                 mark(index: index, status: .failed, error: error.localizedDescription)
                 return
             }
         }
 
-        runLog.append("Workflow abgeschlossen.")
+        if isActiveRun(sessionID) {
+            runLog.append("Workflow abgeschlossen.")
+            if let runDirectoryURL {
+                do {
+                    try workspaceWriter.sealAuditChain(
+                        runDirectory: runDirectoryURL,
+                        status: "completed",
+                        reason: "Workflow completed."
+                    )
+                    try workspaceWriter.writeAuditManifest(
+                        runDirectory: runDirectoryURL,
+                        workflow: workflow,
+                        runSteps: runSteps,
+                        gatekeeperReport: gatekeeperReport
+                    )
+                } catch {
+                    runLog.append("Audit-Seal Fehler: \(error.localizedDescription)")
+                }
+            }
+            isRunning = false
+            activeRunSessionID = nil
+        }
     }
 
     private func request(for step: ConsultantStep, system: String, user: String) -> LLMRequest {
@@ -587,6 +863,12 @@ final class AppStore: ObservableObject {
                 runState: runSteps[index]
             )
             try workspaceWriter.saveRunState(runSteps, in: runDirectoryURL)
+            try workspaceWriter.writeAuditManifest(
+                runDirectory: runDirectoryURL,
+                workflow: workflow,
+                runSteps: runSteps,
+                gatekeeperReport: gatekeeperReport
+            )
         } catch {
             runLog.append("Arbeitsverzeichnis Fehler: \(error.localizedDescription)")
         }
@@ -628,6 +910,12 @@ final class AppStore: ObservableObject {
                 user: user
             )
             try workspaceWriter.saveRunState(runSteps, in: runDirectoryURL)
+            try workspaceWriter.writeAuditManifest(
+                runDirectory: runDirectoryURL,
+                workflow: workflow,
+                runSteps: runSteps,
+                gatekeeperReport: gatekeeperReport
+            )
         } catch {
             runLog.append("Arbeitsverzeichnis Fehler: \(error.localizedDescription)")
         }
@@ -648,15 +936,63 @@ final class AppStore: ObservableObject {
                 feedback: feedback
             )
             try workspaceWriter.saveRunState(runSteps, in: runDirectoryURL)
+            try workspaceWriter.writeAuditManifest(
+                runDirectory: runDirectoryURL,
+                workflow: workflow,
+                runSteps: runSteps,
+                gatekeeperReport: gatekeeperReport
+            )
         } catch {
             runLog.append("Arbeitsverzeichnis Fehler: \(error.localizedDescription)")
         }
+    }
+
+    private func appendStepCompleted(index: Int, step: ConsultantStep) {
+        guard runSteps.indices.contains(index) else { return }
+        appendAuditEvent(
+            event: "STEP_COMPLETED",
+            ref: step.id,
+            agent: step.title,
+            data: [
+                "step_index": "\(index + 1)",
+                "attempt": "\(runSteps[index].attempt)",
+                "status": runSteps[index].status.rawValue,
+                "current_artifact": runSteps[index].currentArtifactPath
+            ]
+        )
+    }
+
+    private func appendAuditEvent(event: String, ref: String?, agent: String?, data: [String: String]) {
+        guard let runDirectoryURL else { return }
+        do {
+            try workspaceWriter.appendAuditEvent(
+                runDirectory: runDirectoryURL,
+                event: event,
+                ref: ref,
+                agent: agent,
+                data: data
+            )
+        } catch {
+            runLog.append("Audit-Chain Fehler: \(error.localizedDescription)")
+        }
+    }
+
+    private func fileHash(in runDirectory: URL, relativePath: String) -> String {
+        let url = runDirectory.appendingPathComponent(relativePath)
+        guard let data = try? Data(contentsOf: url) else { return "" }
+        return "sha256:\(SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined())"
     }
 
     private func persistRunState() {
         guard let runDirectoryURL else { return }
         do {
             try workspaceWriter.saveRunState(runSteps, in: runDirectoryURL)
+            try workspaceWriter.writeAuditManifest(
+                runDirectory: runDirectoryURL,
+                workflow: workflow,
+                runSteps: runSteps,
+                gatekeeperReport: gatekeeperReport
+            )
         } catch {
             runLog.append("Arbeitsverzeichnis Fehler: \(error.localizedDescription)")
         }
@@ -665,10 +1001,24 @@ final class AppStore: ObservableObject {
     private func invalidateRunContextForWorkflowEdit() {
         guard !isRunning else { return }
         guard !runSteps.isEmpty || !currentRunDirectory.isEmpty || currentReviewIndex != nil else { return }
+        activeRunSessionID = nil
         runSteps = []
         runLog = []
         currentRunDirectory = ""
         currentReviewIndex = nil
+    }
+
+    private var pendingReviewIndex: Int? {
+        if let currentReviewIndex,
+           runSteps.indices.contains(currentReviewIndex),
+           runSteps[currentReviewIndex].status == .needsReview {
+            return currentReviewIndex
+        }
+        return runSteps.firstIndex { $0.status == .needsReview }
+    }
+
+    private func isActiveRun(_ sessionID: UUID) -> Bool {
+        activeRunSessionID == sessionID && !Task.isCancelled
     }
 
     private func inferOutputType(_ item: LibraryItem) -> String {

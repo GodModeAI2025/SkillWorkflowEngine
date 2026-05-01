@@ -15,21 +15,21 @@ struct InfoButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(Color.enbwTextSecondary)
+        .foregroundStyle(Color.nwebTextSecondary)
         .help(title)
         .popover(isPresented: $isPresented, arrowEdge: .trailing) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(title)
-                    .font(.enbwHeadline)
-                    .foregroundStyle(Color.enbwTextPrimary)
+                    .font(.nwebHeadline)
+                    .foregroundStyle(Color.nwebTextPrimary)
                 Text(message)
-                    .font(.enbwBody)
-                    .foregroundStyle(Color.enbwTextSecondary)
+                    .font(.nwebBody)
+                    .foregroundStyle(Color.nwebTextSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(14)
             .frame(width: 280, alignment: .leading)
-            .background(Color.enbwBackgroundPrimary)
+            .background(Color.nwebBackgroundPrimary)
         }
     }
 }
@@ -87,7 +87,7 @@ struct LargeDisclosureGroup<Content: View>: View {
 
                     Text(title)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.enbwTextPrimary)
+                        .foregroundStyle(Color.nwebTextPrimary)
 
                     Spacer()
                 }
@@ -97,10 +97,10 @@ struct LargeDisclosureGroup<Content: View>: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .background(Color.enbwBackgroundSecondary, in: RoundedRectangle(cornerRadius: EnBWTheme.smallRadius))
+            .background(Color.nwebBackgroundSecondary, in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius))
             .overlay(
-                RoundedRectangle(cornerRadius: EnBWTheme.smallRadius)
-                    .stroke(Color.enbwBorder)
+                RoundedRectangle(cornerRadius: NWEBTheme.smallRadius)
+                    .stroke(Color.nwebBorder)
             )
 
             if isExpanded {

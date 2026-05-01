@@ -23,11 +23,17 @@ struct SkillShortCutsApp: App {
                 }
                 .keyboardShortcut("s", modifiers: [.command])
 
-                Button("Workflow ausführen") {
-                    Task { await store.startRun() }
+                Button(store.primaryRunActionTitle) {
+                    store.triggerPrimaryRunAction()
                 }
                 .keyboardShortcut("r", modifiers: [.command])
-                .disabled(store.workflow.steps.isEmpty || store.isRunning)
+                .disabled(!store.canUsePrimaryRunAction)
+
+                Button("Lauf abbrechen und resetten") {
+                    store.abortAndResetRun()
+                }
+                .keyboardShortcut(".", modifiers: [.command])
+                .disabled(!store.canAbortOrResetRun)
             }
         }
     }

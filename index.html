@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SkillWorkflowEngine</title>
+  <title>SkillShortCuts - kontrollierte KI-Skillworkflows</title>
   <style>
     :root {
       --accent: #000099;
@@ -106,6 +106,21 @@
       color: var(--text-secondary);
       max-width: 640px;
       margin-bottom: 2.5rem;
+    }
+
+    .hero-kicker {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.6rem;
+      text-transform: uppercase;
+    }
+
+    .hero-note {
+      color: var(--text-tertiary);
+      font-size: 0.9rem;
+      margin-top: 1.25rem;
     }
 
     .cta-group {
@@ -269,13 +284,54 @@
       font-size: 0.95rem;
     }
 
+    .example-flow {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
+
+    .example-step {
+      display: grid;
+      grid-template-columns: 2.6rem minmax(0, 1fr);
+      gap: 1rem;
+      padding: 1rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .example-step:last-child {
+      border-bottom: 0;
+    }
+
+    .example-number {
+      width: 2.2rem;
+      height: 2.2rem;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+    }
+
+    .example-step h3 {
+      font-size: 1rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .example-step p {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
     .roles {
       background: var(--bg-secondary);
     }
 
     .roles-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
       gap: 1rem;
     }
 
@@ -301,13 +357,16 @@
     .rb-support    { background: rgba(132, 192, 65, 0.15); color: var(--success); }
     .rb-challenge  { background: rgba(254, 143, 17, 0.12); color: var(--orange); }
     .rb-independent{ background: rgba(17, 149, 235, 0.12); color: var(--azure); }
+    .rb-lector     { background: rgba(98, 90, 85, 0.12); color: var(--text-secondary); }
+    .rb-finalizer  { background: rgba(0, 0, 153, 0.14); color: var(--accent); }
 
     .role-card p {
       color: var(--text-secondary);
       font-size: 0.9rem;
     }
 
-    .providers {
+    .providers,
+    .audit {
       text-align: center;
     }
 
@@ -385,6 +444,24 @@
       flex-shrink: 0;
     }
 
+    .artifact-list {
+      list-style: none;
+      max-width: 760px;
+      margin: 2rem auto 0;
+      text-align: left;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      font-family: "SF Mono", "Fira Code", monospace;
+      color: var(--text-secondary);
+      font-size: 0.92rem;
+    }
+
+    .artifact-list li {
+      padding: 0.25rem 0;
+    }
+
     footer {
       padding: 3rem 2rem;
       text-align: center;
@@ -425,39 +502,42 @@
         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
       </svg>
     </div>
-    <h1><span>SkillWorkflowEngine</span></h1>
+    <div class="hero-kicker">Native macOS App</div>
+    <h1><span>SkillShortCuts</span></h1>
     <p class="subtitle">
-      Native macOS App zum Komponieren und Ausfuhren KI-gestutzter Beratungsworkflows.
-      Baue virtuelle Beraterteams aus Personas und Skills &mdash; mit Quality Gates und Multi-Provider-Support.
+      Skillworkflow-Player fuer Beraterteams aus WER + WAS: Daten einbringen,
+      Skills sequenzieren, echte LLM-Laeufe ausfuehren, Ergebnisse pruefen und
+      jeden Schritt im Arbeitsverzeichnis nachweisen.
     </p>
     <div class="cta-group">
       <a href="https://github.com/GodModeAI2025/SkillWorkflowEngine" class="btn btn-primary">
         <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-        GitHub Repository
+        Repository oeffnen
       </a>
       <a href="#quickstart" class="btn btn-secondary">Schnellstart</a>
     </div>
+    <p class="hero-note">Repository: SkillWorkflowEngine &middot; App-Bundle: SkillShortCuts</p>
   </section>
 
   <section>
     <div class="container">
       <h2 class="section-title">Kernkonzept</h2>
-      <p class="section-subtitle">Daten und Auftrag treffen auf ein konfigurierbares Beraterteam</p>
+      <p class="section-subtitle">Von strukturierter Eingabe zu pruefbaren Artefakten</p>
       <div class="concept">
         <div class="concept-inner">
           <div class="concept-block">
-            <div class="label">Input</div>
+            <div class="label">Intent</div>
             <div class="value">Daten + Auftrag</div>
           </div>
           <div class="concept-arrow">&rarr;</div>
           <div class="concept-block">
-            <div class="label">Team</div>
-            <div class="value">WER + WAS</div>
+            <div class="label">Operate</div>
+            <div class="value">Skillworkflow</div>
           </div>
           <div class="concept-arrow">&rarr;</div>
           <div class="concept-block">
-            <div class="label">Output</div>
-            <div class="value">Ergebnis</div>
+            <div class="label">Check</div>
+            <div class="value">QS + Audit</div>
           </div>
         </div>
       </div>
@@ -467,37 +547,74 @@
   <section>
     <div class="container">
       <h2 class="section-title">Features</h2>
-      <p class="section-subtitle">Alles, was du brauchst, um KI-Beratungsworkflows zu orchestrieren</p>
+      <p class="section-subtitle">Die App reduziert Freitext-Drift und macht jeden Arbeitsschritt nachvollziehbar</p>
       <div class="features-grid">
         <div class="feature-card">
           <div class="feature-icon fi-blue">&#9881;</div>
-          <h3>Drag &amp; Drop Composer</h3>
-          <p>Workflow visuell zusammenstellen mit Live-Prompt-Vorschau fur jeden Schritt.</p>
+          <h3>Beraterteam aus WER + WAS</h3>
+          <p>Personas, Rollen und Skills werden kombiniert: wer arbeitet mit welcher Aufgabe auf welchen Daten.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon fi-orange">&#9878;</div>
-          <h3>Quality Gates</h3>
-          <p>Manuelles Review, Auto-Pass oder Required &mdash; pro Schritt konfigurierbar.</p>
+          <h3>Workflow-Modi</h3>
+          <p>Ausfuehren, Bearbeiten und Pruefen trennen Nutzung, Konfiguration und Nachweis-Sicht.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon fi-green">&#9733;</div>
-          <h3>Multi-Provider</h3>
-          <p>OpenAI und Anthropic mit per-Step Model-Overrides. API Keys bleiben lokal.</p>
+          <h3>Strukturierte Eingabe</h3>
+          <p>Ziel, Kontext, gewuenschtes Ergebnis und Kriterien ersetzen den reinen Promptkasten.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon fi-azure">&#128218;</div>
-          <h3>AIConsultant-Bibliothek</h3>
-          <p>Personas, Skills, Agents und Standard-Workflows direkt importieren.</p>
+          <div class="feature-icon fi-azure">&#128260;</div>
+          <h3>Feedback-Loops</h3>
+          <p>QS kann freigeben oder mit Feedback einen Redo ausloesen. Nur der neue Stand wird current.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon fi-blue">&#128193;</div>
-          <h3>Folder Context Injection</h3>
-          <p>Repo oder Ordner als Kontext einbinden &mdash; das Team analysiert den Code.</p>
+          <div class="feature-icon fi-blue">&#128218;</div>
+          <h3>Gatekeeper</h3>
+          <p>Vorpruefung auf fehlende Angaben, API-Key, unpassende Inputs und Prompt-Injection-Muster.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon fi-orange">&#127912;</div>
-          <h3>Theming</h3>
-          <p>System, Hell und Dunkel &mdash; mit nativem macOS Look &amp; Feel.</p>
+          <div class="feature-icon fi-orange">&#128193;</div>
+          <h3>Workspace, Audit &amp; Debug</h3>
+          <p>Jeder Lauf erhaelt ein frisches Verzeichnis; Debug zeigt je Schritt Prompts, Daten und Output.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <h2 class="section-title">Beispiel: Architekturberatung</h2>
+      <p class="section-subtitle">Ein Ordner wird durch mehrere Skill-Schritte gefuehrt, bis ein pruefbares Ergebnis entsteht</p>
+      <div class="example-flow">
+        <div class="example-step">
+          <div class="example-number">1</div>
+          <div>
+            <h3>LEAD &middot; Architektur Review</h3>
+            <p>Analysiert den Projektordner, erkennt Risiken, Verantwortlichkeiten, ADR-Bedarf und naechste Schritte.</p>
+          </div>
+        </div>
+        <div class="example-step">
+          <div class="example-number">2</div>
+          <div>
+            <h3>SUPPORT &middot; Security oder Betrieb</h3>
+            <p>Ergaenzt das Review aus einer zweiten fachlichen Perspektive und liefert konkrete Nachbesserungen.</p>
+          </div>
+        </div>
+        <div class="example-step">
+          <div class="example-number">3</div>
+          <div>
+            <h3>CHALLENGE &middot; Kritische Pruefung</h3>
+            <p>Sucht Widersprueche, fehlende Evidenz, Prompt-Risiken und fachliche Luecken im aktuellen Stand.</p>
+          </div>
+        </div>
+        <div class="example-step">
+          <div class="example-number">4</div>
+          <div>
+            <h3>FINALIZER &middot; Ergebnis</h3>
+            <p>Verdichtet freigegebene current.md-Artefakte zu einem Abschlussdokument oder einer Ergebnisstruktur.</p>
+          </div>
         </div>
       </div>
     </div>
@@ -510,28 +627,57 @@
       <div class="roles-grid">
         <div class="role-card">
           <div class="role-badge rb-lead">LEAD</div>
-          <p>Fuhrt den Schritt, strukturiert das Ergebnis, trifft Annahmen transparent.</p>
+          <p>Fuehrt den Schritt, strukturiert das Ergebnis, trifft Annahmen transparent.</p>
         </div>
         <div class="role-card">
           <div class="role-badge rb-support">SUPPORT</div>
-          <p>Erganzt den Lead, vertieft Teilaspekte, bereitet Ubergaben vor.</p>
+          <p>Ergaenzt den Lead, vertieft Teilaspekte, bereitet Uebergaben vor.</p>
         </div>
         <div class="role-card">
           <div class="role-badge rb-challenge">CHALLENGE</div>
-          <p>Pruft kritisch, sucht Lucken, Risiken und Widerspruche.</p>
+          <p>Prueft kritisch, sucht Luecken, Risiken und Widersprueche.</p>
         </div>
         <div class="role-card">
-          <div class="role-badge rb-independent">INDEPENDENT</div>
-          <p>Arbeitet eigenstandig, ohne die Sicht des Lead zu ubernehmen.</p>
+          <div class="role-badge rb-independent">SECOND OPINION</div>
+          <p>Erstellt eine unabhaengige Zweitmeinung auf Basis von Input und Vorartefakten.</p>
+        </div>
+        <div class="role-card">
+          <div class="role-badge rb-lector">LEKTORAT</div>
+          <p>Vereinheitlicht Sprache, Struktur, Tonalitaet und Lesbarkeit.</p>
+        </div>
+        <div class="role-card">
+          <div class="role-badge rb-finalizer">FINALIZER</div>
+          <p>Erzeugt das finale Artefakt aus den freigegebenen aktuellen Stands.</p>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section class="audit">
+    <div class="container">
+      <h2 class="section-title">Nachvollziehbarer Run</h2>
+      <p class="section-subtitle">Jeder Durchlauf bekommt ein frisches Verzeichnis unterhalb des zentralen Arbeitsverzeichnisses</p>
+      <ul class="artifact-list">
+        <li>workflow.json</li>
+        <li>run-plan.json</li>
+        <li>CHAIN.jsonl</li>
+        <li>gatekeeper-report.json</li>
+        <li>input-folder-context.md</li>
+        <li>01-skill-name/current.md</li>
+        <li>01-skill-name/latest-review.md</li>
+        <li>01-skill-name/attempts/attempt-01/output.md</li>
+        <li>audit-manifest.json</li>
+        <li>hash-chain.json</li>
+        <li>audit-summary.md</li>
+        <li>signature-placeholder.txt</li>
+      </ul>
     </div>
   </section>
 
   <section class="providers">
     <div class="container">
       <h2 class="section-title">AI Provider</h2>
-      <p class="section-subtitle">Flexibel zwischen Anbietern wechseln &mdash; auch pro Schritt</p>
+      <p class="section-subtitle">Provider bleiben konfigurierbar, die Prozesslogik bleibt im Skillworkflow</p>
       <div class="provider-logos">
         <div class="provider-chip">
           <div>
@@ -542,7 +688,7 @@
         <div class="provider-chip">
           <div>
             <div class="provider-name">Anthropic</div>
-            <div class="provider-model">claude-opus-4-1</div>
+            <div class="provider-model">claude-opus-4-1-20250805</div>
           </div>
         </div>
       </div>
@@ -557,13 +703,13 @@
         <span class="comment"># Repository klonen</span><br>
         <span class="cmd">git clone</span> https://github.com/GodModeAI2025/SkillWorkflowEngine.git<br>
         <span class="cmd">cd</span> SkillWorkflowEngine<br><br>
-        <span class="comment"># App bauen und starten</span><br>
+        <span class="comment"># Native App bauen und starten</span><br>
         <span class="cmd">./script/build_and_run.sh</span>
       </div>
       <ul class="requirements-list">
         <li>macOS 14 (Sonoma) oder neuer</li>
         <li>Swift 5.9+ / Xcode 15+</li>
-        <li>OpenAI oder Anthropic API Key</li>
+        <li>OpenAI oder Anthropic API Key fuer echte Ausfuehrung</li>
       </ul>
     </div>
   </section>

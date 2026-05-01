@@ -48,12 +48,19 @@ struct PromptBuilder {
         # Workflow
         \(workflow.name)
 
-        # Globaler Auftrag
-        \(workflow.input.prompt)
+        # Strukturierter Auftrag
+        Ziel: \(workflow.input.goal.trimmed.isEmpty ? "Nicht angegeben." : workflow.input.goal)
+        Kontext: \(workflow.input.context.trimmed.isEmpty ? "Nicht angegeben." : workflow.input.context)
+        Gewünschtes Ergebnis: \(workflow.input.desiredResult.trimmed.isEmpty ? "Nicht angegeben." : workflow.input.desiredResult)
+        Kriterien: \(workflow.input.criteria.trimmed.isEmpty ? "Nicht angegeben." : workflow.input.criteria)
+
+        # Freitext-Zusatz
+        \(workflow.input.prompt.trimmed.isEmpty ? "Kein Freitext-Zusatz." : workflow.input.prompt)
 
         # Schritt \(stepIndex + 1)
         Titel: \(step.title)
-        Rolle: \(step.role.rawValue)
+        Rolle: \(step.role.displayName)
+        \(step.role.promptInstruction)
         Aufgabe: \(step.taskText)
         Output-Typ: \(step.outputType)
         QS-Modus: \(step.qualityGate.rawValue)

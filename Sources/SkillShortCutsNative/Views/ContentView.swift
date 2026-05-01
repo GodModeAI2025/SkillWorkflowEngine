@@ -29,17 +29,26 @@ struct ContentView: View {
                 }
 
                 Button {
-                    Task { await store.startRun() }
+                    store.abortAndResetRun()
                 } label: {
-                    Label("Ausführen", systemImage: "play.fill")
+                    Label("Abbrechen", systemImage: "xmark.octagon")
                 }
-                .disabled(store.workflow.steps.isEmpty || store.isRunning)
+                .disabled(!store.canAbortOrResetRun)
+                .help("Aktuellen Lauf abbrechen und Run-Zustand zurücksetzen. Die Workflow-Konfiguration bleibt erhalten.")
+
+                Button {
+                    store.triggerPrimaryRunAction()
+                } label: {
+                    Label(store.primaryRunActionTitle, systemImage: store.primaryRunActionIcon)
+                }
+                .disabled(!store.canUsePrimaryRunAction)
+                .help(store.hasReviewWaiting ? "Aktuellen QS-Schritt freigeben und Workflow fortsetzen" : "Workflow ausführen")
             }
         }
-        .font(.enbwBody)
-        .tint(.enbwAccent)
-        .foregroundStyle(Color.enbwTextPrimary)
-        .background(Color.enbwBackgroundPrimary)
+        .font(.nwebBody)
+        .tint(.nwebAccent)
+        .foregroundStyle(Color.nwebTextPrimary)
+        .background(Color.nwebBackgroundPrimary)
         .alert("SkillShortCuts", isPresented: Binding(
             get: { !store.errorMessage.isEmpty },
             set: { if !$0 { store.errorMessage = "" } }

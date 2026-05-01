@@ -39,13 +39,14 @@ struct InspectorRunView: View {
                         runControls
                     case .ai:
                         appearanceSettings
+                        debugSettings
                         providerSettings
                     }
                 }
                 .padding(14)
             }
         }
-        .background(Color.enbwSidebar)
+        .background(Color.nwebSidebar)
         .onChange(of: selectedPane) { _, pane in
             if pane == .preview {
                 store.refreshPromptPreview()
@@ -62,25 +63,25 @@ struct InspectorRunView: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Inspector")
-                    .font(.enbwTitle)
-                    .foregroundStyle(Color.enbwTextPrimary)
+                    .font(.nwebTitle)
+                    .foregroundStyle(Color.nwebTextPrimary)
                 Text(headerSubtitle)
                     .font(.caption)
-                    .foregroundStyle(Color.enbwTextSecondary)
+                    .foregroundStyle(Color.nwebTextSecondary)
                     .lineLimit(2)
             }
             Spacer()
             if let selectedStep = store.selectedStep {
-                Text(selectedStep.role.rawValue)
+                Text(selectedStep.role.displayName)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.enbwAccent)
+                    .foregroundStyle(Color.nwebAccent)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color.enbwOrange.opacity(0.12), in: Capsule())
+                    .background(Color.nwebOrange.opacity(0.12), in: Capsule())
             }
         }
         .padding(14)
-        .background(Color.enbwSidebar)
+        .background(Color.nwebSidebar)
     }
 
     private var headerSubtitle: String {
@@ -137,7 +138,7 @@ struct InspectorRunView: View {
                         set: { newValue in store.updateSelectedStep { $0.role = newValue } }
                     )) {
                         ForEach(ConsultantRole.allCases) { role in
-                            Text("\(role.rawValue) - \(role.shortDescription)").tag(role)
+                            Text("\(role.displayName) - \(role.shortDescription)").tag(role)
                         }
                     }
                 }
@@ -211,7 +212,7 @@ struct InspectorRunView: View {
         InspectorSection("Prompt-Vorschau", systemImage: "text.magnifyingglass") {
             Text("Zeigt, was aus WER + WAS + Auftrag + Daten für den ausgewählten Berater entsteht.")
                 .font(.caption)
-                .foregroundStyle(Color.enbwTextSecondary)
+                .foregroundStyle(Color.nwebTextSecondary)
 
             HStack {
                 Button {
@@ -226,7 +227,7 @@ struct InspectorRunView: View {
                 if store.hasCurrentPromptPreview {
                     Text("WAS: \(store.promptPreview.skillTitle)")
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(Color.enbwTextSecondary)
+                        .foregroundStyle(Color.nwebTextSecondary)
                         .lineLimit(1)
                 }
             }
@@ -234,7 +235,7 @@ struct InspectorRunView: View {
             if store.hasCurrentPromptPreview {
                 Text("WER: \(store.promptPreview.personaTitle)")
                     .font(.caption)
-                    .foregroundStyle(Color.enbwTextSecondary)
+                    .foregroundStyle(Color.nwebTextSecondary)
                     .lineLimit(1)
 
                 LargeDisclosureGroup("Systemprompt", systemImage: "terminal") {
@@ -247,32 +248,48 @@ struct InspectorRunView: View {
             } else {
                 Text("Noch keine Vorschau. Wähle einen Schritt und klicke auf Vorschau erzeugen.")
                     .font(.caption)
-                    .foregroundStyle(Color.enbwTextSecondary)
+                    .foregroundStyle(Color.nwebTextSecondary)
             }
         }
     }
 
     private var runControls: some View {
         InspectorSection("Ausführung & QS", systemImage: "play.rectangle") {
+            gatekeeperSummary
+
             HStack {
                 Button {
-                    Task { await store.startRun() }
+                    store.runGatekeeperCheck()
                 } label: {
-                    Label(store.isRunning ? "Läuft..." : "Workflow ausführen", systemImage: "play.fill")
+                    Label("Gatekeeper prüfen", systemImage: "shield.checkered")
+                }
+
+                Button {
+                    store.triggerPrimaryRunAction()
+                } label: {
+                    Label(store.primaryRunActionTitle, systemImage: store.primaryRunActionIcon)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(store.workflow.steps.isEmpty || store.isRunning)
+                .disabled(!store.canUsePrimaryRunAction || (store.workflowMode == .audit && !store.hasReviewWaiting))
+
+                Button {
+                    store.abortAndResetRun()
+                } label: {
+                    Label("Abbrechen", systemImage: "xmark.octagon")
+                }
+                .disabled(!store.canAbortOrResetRun)
+                .help("Aktuellen Lauf abbrechen und Run-Zustand zurücksetzen.")
 
                 Spacer()
 
                 if store.runSteps.contains(where: { $0.status == .needsReview }) {
                     Button("Freigeben") {
-                        Task { await store.approveCurrentStep() }
+                        store.triggerApproveCurrentStep()
                     }
                     Button("Redo") {
                         let feedback = redoFeedback
                         redoFeedback = ""
-                        Task { await store.redoCurrentStep(feedback: feedback) }
+                        store.triggerRedoCurrentStep(feedback: feedback)
                     }
                 }
             }
@@ -281,23 +298,41 @@ struct InspectorRunView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Run-Arbeitsverzeichnis")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.enbwTextSecondary)
+                        .foregroundStyle(Color.nwebTextSecondary)
                     Text(store.currentRunDirectory)
                         .font(.caption.monospaced())
-                        .foregroundStyle(Color.enbwTextSecondary)
+                        .foregroundStyle(Color.nwebTextSecondary)
                         .lineLimit(2)
                         .textSelection(.enabled)
                 }
 
+                auditChainSummary
+
                 Text("Folge-Skills verwenden nur die `current.md`-Artefakte vorheriger Schritte. Redos ersetzen diesen gültigen Stand.")
                     .font(.caption)
-                    .foregroundStyle(Color.enbwTextSecondary)
+                    .foregroundStyle(Color.nwebTextSecondary)
+
+                LargeDisclosureGroup("Nachweisdateien", systemImage: "checkmark.shield") {
+                    Text("""
+                    CHAIN.jsonl
+                    audit-manifest.json
+                    hash-chain.json
+                    audit-summary.md
+                    gatekeeper-report.json
+                    run-plan.json
+                    signature-placeholder.txt
+                    """)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(Color.nwebTextSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+                }
             }
 
             if store.runSteps.contains(where: { $0.status == .needsReview }) {
                 Text("Redo nutzt bisherigen Output, Eingabematerial und diesen Korrekturprompt.")
                     .font(.caption)
-                    .foregroundStyle(Color.enbwTextSecondary)
+                    .foregroundStyle(Color.nwebTextSecondary)
                 TextEditor(text: $redoFeedback)
                     .frame(minHeight: 58)
                     .inspectorTextEditor()
@@ -314,10 +349,10 @@ struct InspectorRunView: View {
             if store.runSteps.isEmpty {
                 Text("Noch kein Lauf gestartet.")
                     .font(.caption)
-                    .foregroundStyle(Color.enbwTextSecondary)
+                    .foregroundStyle(Color.nwebTextSecondary)
             } else {
                 ForEach(store.runSteps) { step in
-                    RunStepRow(step: step)
+                    RunStepRow(step: step, debugSnapshot: store.debugSnapshot(for: step))
                 }
             }
 
@@ -325,11 +360,117 @@ struct InspectorRunView: View {
                 LargeDisclosureGroup("Log", systemImage: "list.bullet.rectangle") {
                     Text(store.runLog.joined(separator: "\n"))
                         .font(.caption.monospaced())
-                        .foregroundStyle(Color.enbwTextSecondary)
+                        .foregroundStyle(Color.nwebTextSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .textSelection(.enabled)
                 }
             }
+        }
+    }
+
+    private var auditChainSummary: some View {
+        let summary = store.currentAuditSummary()
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Label("Audit-Chain", systemImage: "link.badge.plus")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.nwebTextPrimary)
+                Spacer()
+                Text(auditBadge(summary))
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(auditColor(summary))
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(auditColor(summary).opacity(0.14), in: Capsule())
+            }
+
+            Text(summary.message)
+                .font(.caption)
+                .foregroundStyle(Color.nwebTextSecondary)
+
+            if summary.exists {
+                Text("\(summary.entryCount) Einträge · \(summary.lastEvent)")
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(Color.nwebTextSecondary)
+
+                if !summary.finalHash.isEmpty {
+                    Text(summary.finalHash)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(Color.nwebTextSecondary)
+                        .lineLimit(2)
+                        .textSelection(.enabled)
+                }
+            }
+        }
+        .padding(10)
+        .background(Color.nwebBackgroundSecondary, in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius))
+        .overlay(
+            RoundedRectangle(cornerRadius: NWEBTheme.smallRadius)
+                .stroke(Color.nwebBorder)
+        )
+    }
+
+    private func auditBadge(_ summary: AuditChainSummary) -> String {
+        guard summary.exists else { return "FEHLT" }
+        if !summary.isValid { return "BRUCH" }
+        return summary.isSealed ? "VERSIEGELT" : "OFFEN"
+    }
+
+    private func auditColor(_ summary: AuditChainSummary) -> Color {
+        guard summary.exists else { return .nwebTextSecondary }
+        if !summary.isValid { return .nwebError }
+        return summary.isSealed ? .nwebSuccess : .nwebWarning
+    }
+
+    private var gatekeeperSummary: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label("Gatekeeper", systemImage: "shield.checkered")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.nwebTextPrimary)
+                Spacer()
+                Text(store.gatekeeperReport.overall.rawValue)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(gatekeeperColor)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(gatekeeperColor.opacity(0.14), in: Capsule())
+            }
+
+            Text(store.gatekeeperReport.summary)
+                .font(.caption)
+                .foregroundStyle(Color.nwebTextSecondary)
+
+            if !store.gatekeeperReport.issues.isEmpty {
+                LargeDisclosureGroup("Gatekeeper Details", systemImage: "exclamationmark.triangle") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(store.gatekeeperReport.issues) { issue in
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("\(issue.severity.rawValue) - \(issue.title)")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(issue.severity == .critical ? Color.nwebError : Color.nwebWarning)
+                                Text(issue.detail)
+                                    .font(.caption)
+                                    .foregroundStyle(Color.nwebTextSecondary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(10)
+        .background(Color.nwebBackgroundSecondary, in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius))
+        .overlay(
+            RoundedRectangle(cornerRadius: NWEBTheme.smallRadius)
+                .stroke(Color.nwebBorder)
+        )
+    }
+
+    private var gatekeeperColor: Color {
+        switch store.gatekeeperReport.overall {
+        case .ok: return .nwebSuccess
+        case .warning: return .nwebWarning
+        case .critical: return .nwebError
         }
     }
 
@@ -352,7 +493,29 @@ struct InspectorRunView: View {
 
             Text("System folgt macOS. Hell und Dunkel überschreiben die OS-Vorgabe für diese App.")
                 .font(.caption)
-                .foregroundStyle(Color.enbwTextSecondary)
+                .foregroundStyle(Color.nwebTextSecondary)
+        }
+    }
+
+    private var debugSettings: some View {
+        InspectorSection("Debug", systemImage: "ladybug") {
+            InfoControlRow(
+                "Debug-Modus",
+                message: "Wenn aktiv, zeigt die Run-Ansicht pro Schritt die tatsächlich geschriebenen Eingangsdateien, System-/User-Prompts, Outputs, QS-Prompts, Reviews und Dateipfade aus dem Arbeitsverzeichnis."
+            ) {
+                Toggle("Debug-Modus", isOn: $store.debugModeEnabled)
+                    .toggleStyle(.switch)
+                    .onChange(of: store.debugModeEnabled) { _, _ in
+                        store.saveSettings()
+                    }
+            }
+
+            Text(store.debugModeEnabled
+                ? "Aktiv: Im Run-Tab erscheinen pro Schritt Debug-Details zu Rein/Raus-Dateien."
+                : "Inaktiv: Run-Ansicht bleibt kompakt, Nachweisdateien werden weiter im Arbeitsverzeichnis geschrieben."
+            )
+            .font(.caption)
+            .foregroundStyle(Color.nwebTextSecondary)
         }
     }
 
@@ -426,17 +589,17 @@ struct InspectorSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label(title, systemImage: systemImage)
-                .font(.enbwHeadline)
-                .foregroundStyle(Color.enbwAccent)
+                .font(.nwebHeadline)
+                .foregroundStyle(Color.nwebAccent)
             content
         }
         .padding(12)
-        .background(Color.enbwBackgroundPrimary, in: RoundedRectangle(cornerRadius: EnBWTheme.mediumRadius))
+        .background(Color.nwebBackgroundPrimary, in: RoundedRectangle(cornerRadius: NWEBTheme.mediumRadius))
         .overlay(
-            RoundedRectangle(cornerRadius: EnBWTheme.mediumRadius)
-                .stroke(Color.enbwBorder)
+            RoundedRectangle(cornerRadius: NWEBTheme.mediumRadius)
+                .stroke(Color.nwebBorder)
         )
-        .shadow(color: Color.enbwTextPrimary.opacity(0.06), radius: 8, x: 0, y: 3)
+        .shadow(color: Color.nwebTextPrimary.opacity(0.06), radius: 8, x: 0, y: 3)
     }
 }
 
@@ -450,7 +613,7 @@ struct FieldLabel: View {
     var body: some View {
         Text(title)
             .font(.caption.weight(.semibold))
-            .foregroundStyle(Color.enbwTextSecondary)
+            .foregroundStyle(Color.nwebTextSecondary)
     }
 }
 
@@ -466,31 +629,32 @@ struct PromptTextBlock: View {
                 .padding(8)
         }
         .frame(minHeight: 180, maxHeight: 360)
-        .background(Color.enbwBackgroundSecondary, in: RoundedRectangle(cornerRadius: EnBWTheme.smallRadius))
+        .background(Color.nwebBackgroundSecondary, in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius))
         .overlay(
-            RoundedRectangle(cornerRadius: EnBWTheme.smallRadius)
-                .stroke(Color.enbwBorder)
+            RoundedRectangle(cornerRadius: NWEBTheme.smallRadius)
+                .stroke(Color.nwebBorder)
         )
     }
 }
 
 struct RunStepRow: View {
     let step: RunStepState
+    let debugSnapshot: StepDebugSnapshot?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("\(step.index + 1). \(step.title)")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.enbwTextPrimary)
+                    .foregroundStyle(Color.nwebTextPrimary)
                     .lineLimit(1)
                 if step.attempt > 1 {
                     Text("V\(step.attempt)")
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(Color.enbwOrange)
+                        .foregroundStyle(Color.nwebOrange)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 3)
-                        .background(Color.enbwOrange.opacity(0.12), in: Capsule())
+                        .background(Color.nwebOrange.opacity(0.12), in: Capsule())
                 }
                 Spacer()
                 StatusBadge(status: step.status)
@@ -499,17 +663,17 @@ struct RunStepRow: View {
             if !step.error.isEmpty {
                 Text(step.error)
                     .font(.caption)
-                    .foregroundStyle(Color.enbwError)
+                    .foregroundStyle(Color.nwebError)
             }
 
             if !step.currentArtifactPath.isEmpty {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Gültiges Artefakt")
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(Color.enbwTextSecondary)
+                        .foregroundStyle(Color.nwebTextSecondary)
                     Text(step.currentArtifactPath)
                         .font(.caption2.monospaced())
-                        .foregroundStyle(Color.enbwTextSecondary)
+                        .foregroundStyle(Color.nwebTextSecondary)
                         .lineLimit(2)
                         .textSelection(.enabled)
                 }
@@ -532,13 +696,97 @@ struct RunStepRow: View {
                         .textSelection(.enabled)
                 }
             }
+
+            if let debugSnapshot {
+                LargeDisclosureGroup("Debug: Rein / Raus", systemImage: "ladybug") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Versuch \(debugSnapshot.attempt)")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Color.nwebTextPrimary)
+                            Text(debugSnapshot.attemptDirectoryPath)
+                                .font(.caption2.monospaced())
+                                .foregroundStyle(Color.nwebTextSecondary)
+                                .lineLimit(3)
+                                .textSelection(.enabled)
+                        }
+
+                        if debugSnapshot.files.isEmpty {
+                            Text("Noch keine Debug-Dateien für diesen Schritt vorhanden.")
+                                .font(.caption)
+                                .foregroundStyle(Color.nwebTextSecondary)
+                        } else {
+                            ForEach(debugSnapshot.files) { file in
+                                DebugFileBlock(file: file)
+                            }
+                        }
+                    }
+                }
+            }
         }
         .padding(10)
-        .background(Color.enbwBackgroundSecondary, in: RoundedRectangle(cornerRadius: EnBWTheme.smallRadius))
+        .background(Color.nwebBackgroundSecondary, in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius))
         .overlay(
-            RoundedRectangle(cornerRadius: EnBWTheme.smallRadius)
-                .stroke(Color.enbwBorder)
+            RoundedRectangle(cornerRadius: NWEBTheme.smallRadius)
+                .stroke(Color.nwebBorder)
         )
+    }
+}
+
+struct DebugFileBlock: View {
+    let file: DebugFileSnapshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Text(file.phase)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(phaseColor)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(phaseColor.opacity(0.13), in: Capsule())
+
+                Text(file.title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.nwebTextPrimary)
+                    .lineLimit(1)
+
+                Spacer()
+
+                Text("\(file.characterCount) Zeichen")
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(Color.nwebTextSecondary)
+            }
+
+            Text(file.path)
+                .font(.caption2.monospaced())
+                .foregroundStyle(Color.nwebTextSecondary)
+                .lineLimit(3)
+                .textSelection(.enabled)
+
+            LargeDisclosureGroup(file.isTruncated ? "Inhalt anzeigen (gekürzt)" : "Inhalt anzeigen", systemImage: "doc.text.magnifyingglass") {
+                PromptTextBlock(text: file.contentPreview)
+            }
+        }
+        .padding(9)
+        .background(Color.nwebBackgroundPrimary, in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius))
+        .overlay(
+            RoundedRectangle(cornerRadius: NWEBTheme.smallRadius)
+                .stroke(Color.nwebBorder)
+        )
+    }
+
+    private var phaseColor: Color {
+        switch file.phase {
+        case "Eingang", "Daten":
+            return .nwebAccent
+        case "Ausgang":
+            return .nwebSuccess
+        case "QS", "Review":
+            return .nwebOrange
+        default:
+            return .nwebTextSecondary
+        }
     }
 }
 
@@ -556,16 +804,16 @@ struct StatusBadge: View {
 
     private var color: Color {
         switch status {
-        case .done, .approved: return .enbwSuccess
-        case .running, .needsReview: return .enbwWarning
-        case .failed: return .enbwError
-        case .idle, .pending: return .enbwTextSecondary
+        case .done, .approved: return .nwebSuccess
+        case .running, .needsReview: return .nwebWarning
+        case .failed: return .nwebError
+        case .idle, .pending: return .nwebTextSecondary
         }
     }
 }
 
 private extension View {
     func inspectorTextEditor() -> some View {
-        enbwInputBackground()
+        nwebInputBackground()
     }
 }
