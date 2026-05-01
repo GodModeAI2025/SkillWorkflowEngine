@@ -19,8 +19,8 @@ struct InspectorRunView: View {
                 .controlSize(.large)
 
                 InfoButton(
-                    title: "Bühne",
-                    message: "Wechselt zwischen Block-Konfiguration, Prompt-Vorschau, Ausführung/QS und AI-/Theme-Einstellungen."
+                    title: "Prüfen & Starten",
+                    message: "Hier konfigurierst du den ausgewählten Block, schaust dir die Vorschau an, startest den Ablauf und gibst Ergebnisse frei."
                 )
             }
             .padding(.horizontal, 14)
@@ -62,7 +62,7 @@ struct InspectorRunView: View {
     private var inspectorHeader: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("Bühne")
+                Text("Prüfen & Starten")
                     .font(.nwebTitle)
                     .foregroundStyle(Color.nwebTextPrimary)
                 Text(headerSubtitle)
@@ -88,7 +88,7 @@ struct InspectorRunView: View {
         if let step = store.selectedStep {
             return step.title.isEmpty ? "Ausgewählter Skill-Schritt" : step.title
         }
-        return "WAS-Block in den Skill-Prozess ziehen oder einen Schritt auswählen."
+        return "WAS-Block in den Ablauf ziehen oder einen Schritt auswählen."
     }
 
     @ViewBuilder
@@ -102,7 +102,7 @@ struct InspectorRunView: View {
 
                 InfoControlRow(
                     "WAS",
-                    message: "Bestimmt den Skill oder Job, der in diesem Prozessschritt ausgeführt wird. Der WAS-Baustein liefert Aufgabe, Fachlogik und Arbeitsmodus."
+                    message: "Bestimmt, was dieser Block mit den Daten macht. Der WAS-Baustein liefert Aufgabe, Fachlogik und Arbeitsmodus."
                 ) {
                     Picker("WAS", selection: Binding(
                         get: { step.skillId },
@@ -116,7 +116,7 @@ struct InspectorRunView: View {
 
                 InfoControlRow(
                     "WER",
-                    message: "Optionale Perspektive und Denkstil für den Schritt. Ohne Persona läuft nur der gewählte WAS-Skill."
+                    message: "Optionale Perspektive für diesen Block. Ohne WER arbeitet nur der gewählte WAS-Block."
                 ) {
                     Picker("WER", selection: Binding(
                         get: { step.personaId ?? "" },
@@ -159,7 +159,7 @@ struct InspectorRunView: View {
             }
 
             InspectorSection("Auftrag", systemImage: "text.badge.checkmark") {
-                FieldLabel("Aufgabe")
+                FieldLabel("Was soll dieser Block tun?")
                 TextEditor(text: Binding(
                     get: { step.taskText },
                     set: { newValue in store.updateSelectedStep { $0.taskText = newValue } }
@@ -167,7 +167,7 @@ struct InspectorRunView: View {
                 .frame(minHeight: 72)
                 .inspectorTextEditor()
 
-                FieldLabel("Zusatzprompt")
+                FieldLabel("Zusatzwunsch")
                 TextEditor(text: Binding(
                     get: { step.prompt },
                     set: { newValue in store.updateSelectedStep { $0.prompt = newValue } }
@@ -175,7 +175,7 @@ struct InspectorRunView: View {
                 .frame(minHeight: 92)
                 .inspectorTextEditor()
 
-                FieldLabel("Abnahmekriterien")
+                FieldLabel("Woran erkennst du, dass es passt?")
                 TextEditor(text: Binding(
                     get: { step.acceptanceCriteria },
                     set: { newValue in store.updateSelectedStep { $0.acceptanceCriteria = newValue } }
@@ -185,11 +185,11 @@ struct InspectorRunView: View {
             }
 
             InspectorSection("Ausgabe", systemImage: "doc.text") {
-                TextField("Output-Typ", text: Binding(
+                TextField("Ergebnisformat", text: Binding(
                     get: { step.outputType },
                     set: { newValue in store.updateSelectedStep { $0.outputType = newValue } }
                 ))
-                TextField("Modell Override", text: Binding(
+                TextField("Anderes Modell (optional)", text: Binding(
                     get: { step.modelOverride },
                     set: { newValue in store.updateSelectedStep { $0.modelOverride = newValue } }
                 ))
@@ -203,7 +203,7 @@ struct InspectorRunView: View {
             ContentUnavailableView(
                 "Kein Schritt ausgewählt",
                 systemImage: "sidebar.right",
-                description: Text("Ziehe zuerst einen WAS-Block in den Skill-Prozess.")
+                description: Text("Ziehe zuerst einen WAS-Block in den Ablauf.")
             )
         }
     }

@@ -35,10 +35,10 @@ struct TeamComposerView: View {
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 3) {
-                Text("Skill-Prozess")
+                Text("Ablauf")
                     .font(.nwebTitle)
                     .foregroundStyle(Color.nwebTextPrimary)
-                Text("Staple WAS-Blöcke, optionale WER-Perspektiven, Rollen und QS zu einem ausführbaren Prozess.")
+                Text("Ziehe Blöcke von links hierher. SkillShortCuts arbeitet sie später von oben nach unten ab.")
                     .font(.caption)
                     .foregroundStyle(Color.nwebTextSecondary)
             }
@@ -62,7 +62,7 @@ struct TeamComposerView: View {
             Text("WAS-Block hierher ziehen")
                 .font(.headline)
                 .foregroundStyle(Color.nwebTextPrimary)
-            Text("Danach optional WER-Persona, Rolle und QS am Schritt konfigurieren.")
+            Text("Starte mit dem, was passieren soll. Perspektive und Prüfung kannst du danach ergänzen.")
                 .font(.caption)
                 .foregroundStyle(Color.nwebTextSecondary)
         }
@@ -77,6 +77,15 @@ struct TeamComposerView: View {
 
     private var addDropZone: some View {
         HStack {
+            Text("von oben nach unten")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(Color.nwebTextSecondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.nwebTextSecondary.opacity(0.10), in: Capsule())
+
+            Spacer()
+
             Image(systemName: "plus.circle")
             Text("Weiteren WAS-Block hier ablegen")
         }
@@ -119,7 +128,7 @@ struct ConsultantCard: View {
 
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 7) {
-                            Text(step.title.isEmpty ? (skill?.displayName ?? "Unbenannter Schritt") : step.title)
+                            Text(step.title.isEmpty ? (skill?.displayName ?? "Unbenannter Block") : step.title)
                                 .font(.headline)
                                 .foregroundStyle(Color.nwebTextPrimary)
                                 .lineLimit(1)
@@ -166,7 +175,7 @@ struct ConsultantCard: View {
                             }
                             .foregroundStyle(runState.status == .failed ? Color.nwebError : Color.nwebTextSecondary)
                         }
-                        Label(step.role.displayName, systemImage: "person.badge.key")
+                        Label(step.role.displayName, systemImage: "flag.checkered")
                         Label("QS \(step.qualityGate.rawValue)", systemImage: "checkmark.seal")
                     }
                     .font(.caption2.weight(.semibold))

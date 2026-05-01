@@ -90,9 +90,9 @@ enum WorkflowMode: String, Codable, CaseIterable, Identifiable {
 
     var description: String {
         switch self {
-        case .execute: return "Input geben, Workflow starten, QS freigeben und Feedback geben."
-        case .edit: return "Skillworkflow, Rollen, Reihenfolge, Modelle und QS konfigurieren."
-        case .audit: return "Run-Verzeichnis, Artefakte, Gatekeeper, Hashes und Nachweise prüfen."
+        case .execute: return "Daten eingeben, Ablauf starten, Ergebnisse freigeben oder Feedback geben."
+        case .edit: return "Ablauf aus Blöcken bauen, sortieren und je Block Prüfung einstellen."
+        case .audit: return "Nachsehen, welche Eingaben, Prompts, Ergebnisse und Nachweise entstanden sind."
         }
     }
 }
@@ -191,7 +191,7 @@ struct ConsultantStep: Identifiable, Codable, Hashable {
 
 struct ShortcutWorkflow: Identifiable, Codable, Hashable {
     var id: String = "wf-\(UUID().uuidString)"
-    var name: String = "Neuer Skill-Prozess"
+    var name: String = "Neuer Ablauf"
     var input: WorkflowInput = WorkflowInput()
     var provider: AIProvider = .openAI
     var steps: [ConsultantStep] = []

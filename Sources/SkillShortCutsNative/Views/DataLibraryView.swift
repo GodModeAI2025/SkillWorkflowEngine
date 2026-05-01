@@ -10,6 +10,7 @@ struct DataLibraryView: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    buildGuideSection
                     modeSection
                     workflowSection
                     sourceSection
@@ -22,17 +23,37 @@ struct DataLibraryView: View {
         .background(ScratchStyle.paletteBackground)
     }
 
+    private var buildGuideSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Ablauf bauen", systemImage: "hand.draw")
+                .font(.nwebHeadline)
+                .foregroundStyle(ScratchStyle.motionBlue)
+
+            Text("Wähle Daten, ziehe Bausteine in die Mitte und starte rechts. Der Ablauf läuft von oben nach unten.")
+                .font(.caption)
+                .foregroundStyle(Color.nwebTextSecondary)
+
+            VStack(alignment: .leading, spacing: 8) {
+                BuildGuideRow(number: 1, title: "Daten", detail: "Ordner oder Text angeben", color: ScratchStyle.motionBlue)
+                BuildGuideRow(number: 2, title: "WAS", detail: "Skill-Block in den Ablauf ziehen", color: ScratchStyle.looksPurple)
+                BuildGuideRow(number: 3, title: "WER", detail: "optional Perspektive ergänzen", color: ScratchStyle.variablesOrange)
+                BuildGuideRow(number: 4, title: "Start", detail: "Ergebnis prüfen oder Feedback geben", color: ScratchStyle.operatorsGreen)
+            }
+        }
+        .scratchPanel()
+    }
+
     private var modeSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Prozess-Modus", systemImage: "slider.horizontal.3")
+            Label("Arbeitsmodus", systemImage: "slider.horizontal.3")
                 .font(.nwebHeadline)
                 .foregroundStyle(Color.nwebAccent)
 
             InfoControlRow(
-                "Prozess-Modus",
+                "Arbeitsmodus",
                 message: WorkflowMode.allCases.map { "\($0.label): \($0.description)" }.joined(separator: "\n\n")
             ) {
-                Picker("Prozess-Modus", selection: $store.workflowMode) {
+                Picker("Arbeitsmodus", selection: $store.workflowMode) {
                     ForEach(WorkflowMode.allCases) { mode in
                         Text(mode.label).tag(mode)
                     }
@@ -56,7 +77,7 @@ struct DataLibraryView: View {
                 .font(.nwebHeadline)
                 .foregroundStyle(Color.nwebAccent)
 
-            TextField("Workflow-Name", text: Binding(
+            TextField("Ablauf-Name", text: Binding(
                 get: { store.workflow.name },
                 set: { newValue in
                     store.workflow.name = newValue
@@ -66,7 +87,7 @@ struct DataLibraryView: View {
             .disabled(store.workflowMode == .audit)
 
             HStack {
-                TextField("Ordner oder Repo", text: Binding(
+                TextField("Datenordner oder Projektordner", text: Binding(
                     get: { store.workflow.input.folderPath },
                     set: { newValue in
                         store.workflow.input.folderPath = newValue
@@ -165,12 +186,12 @@ struct DataLibraryView: View {
 
     private var sourceSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("AIConsultant", systemImage: "books.vertical")
+            Label("Skill-Bibliothek", systemImage: "books.vertical")
                 .font(.nwebHeadline)
                 .foregroundStyle(Color.nwebAccent)
 
             HStack {
-                TextField("AIConsultant-Pfad", text: $store.libraryPath)
+                TextField("Pfad zur Skill-Bibliothek", text: $store.libraryPath)
                 Button("Laden") {
                     store.saveSettings()
                     Task { await store.loadLibrary() }
@@ -192,13 +213,13 @@ struct DataLibraryView: View {
 
     private var templateSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Skillworkflow-Vorlagen", systemImage: "rectangle.stack")
+            Label("Fertige Abläufe", systemImage: "rectangle.stack")
                 .font(.nwebHeadline)
                 .foregroundStyle(Color.nwebAccent)
 
             InfoControlRow(
                 "Vorlage",
-                message: "Wählt einen vorbereiteten Skillworkflow aus AIConsultant. Übernehmen füllt daraus die Prozesskette mit passenden WAS-Schritten."
+                message: "Wählt einen vorbereiteten Ablauf aus der Skill-Bibliothek. Übernehmen füllt daraus die Prozesskette mit passenden WAS-Schritten."
             ) {
                 Picker("Vorlage", selection: $selectedTemplateID) {
                     Text("Keine Vorlage").tag("")
@@ -232,12 +253,12 @@ struct DataLibraryView: View {
                 .font(.nwebHeadline)
                 .foregroundStyle(Color.nwebAccent)
 
-            TextField("Suchen: Architektur, ADR, Strategie...", text: $store.searchText)
+            TextField("Suchen: prüfen, schreiben, zusammenfassen...", text: $store.searchText)
                 .textFieldStyle(.roundedBorder)
 
             InfoControlRow(
                 "Modus",
-                message: "Filtert die Bausteinbibliothek: WAS sind ausführbare Skills, WER sind Personas für Denkstil und Rolle, QS sind Prüf- und Lektoratsbausteine."
+                message: "WAS macht die Arbeit. WER gibt eine Perspektive oder Haltung. QS prüft das Ergebnis."
             ) {
                 Picker("Modus", selection: $mode) {
                     ForEach(LibraryMode.allCases) { mode in
@@ -246,6 +267,8 @@ struct DataLibraryView: View {
                 }
                 .pickerStyle(.segmented)
             }
+
+            CategoryHint(mode: mode)
 
             LazyVStack(spacing: 8) {
                 ForEach(itemsForMode) { item in
@@ -288,6 +311,74 @@ struct DataLibraryView: View {
         if panel.runModal() == .OK, let url = panel.url {
             store.workDirectoryPath = url.path
             store.saveSettings()
+        }
+    }
+}
+
+private struct BuildGuideRow: View {
+    let number: Int
+    let title: String
+    let detail: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 9) {
+            Text("\(number)")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(width: 24, height: 24)
+                .background(color, in: RoundedRectangle(cornerRadius: 7))
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.nwebTextPrimary)
+                Text(detail)
+                    .font(.caption2)
+                    .foregroundStyle(Color.nwebTextSecondary)
+                    .lineLimit(1)
+            }
+        }
+    }
+}
+
+private struct CategoryHint: View {
+    let mode: LibraryMode
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(color)
+                .frame(width: 10, height: 10)
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(Color.nwebTextSecondary)
+                .lineLimit(2)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(color.opacity(0.10), in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius))
+    }
+
+    private var text: String {
+        switch mode {
+        case .skills:
+            return "WAS-Blöcke sind Aktionen: analysieren, schreiben, prüfen, zusammenfassen."
+        case .personas:
+            return "WER-Blöcke ändern die Perspektive, ohne einen neuen Arbeitsschritt zu erzeugen."
+        case .quality:
+            return "QS-Blöcke prüfen Ergebnisse oder machen sie lesbarer."
+        }
+    }
+
+    private var color: Color {
+        switch mode {
+        case .skills:
+            return ScratchStyle.looksPurple
+        case .personas:
+            return ScratchStyle.variablesOrange
+        case .quality:
+            return ScratchStyle.operatorsGreen
         }
     }
 }
