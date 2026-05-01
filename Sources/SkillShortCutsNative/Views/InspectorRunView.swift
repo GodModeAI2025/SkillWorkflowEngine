@@ -10,7 +10,7 @@ struct InspectorRunView: View {
             inspectorHeader
 
             HStack(spacing: 8) {
-                Picker("Bühne", selection: $selectedPane) {
+                Picker("Debugger Pane", selection: $selectedPane) {
                     ForEach(InspectorPane.allCases) { pane in
                         Text(pane.title).tag(pane)
                     }
@@ -20,8 +20,8 @@ struct InspectorRunView: View {
                 .controlSize(.large)
 
                 InfoButton(
-                    title: "Prüfen & Starten",
-                    message: "Hier konfigurierst du den ausgewählten Block, schaust dir die Vorschau an, startest den Ablauf und gibst Ergebnisse frei."
+                    title: "Debugger",
+                    message: "Wie bei Yahoo Pipes: Module konfigurieren, Zwischenergebnisse prüfen, den Pipe-Lauf starten und QS/Redo ausführen."
                 )
             }
             .padding(.horizontal, 14)
@@ -47,7 +47,7 @@ struct InspectorRunView: View {
                 .padding(20)
             }
         }
-        .background(ScratchStyle.stageBackground)
+        .background(PipesStyle.debuggerBackground)
         .onChange(of: selectedPane) { _, pane in
             if pane == .preview {
                 store.refreshPromptPreview()
@@ -61,43 +61,26 @@ struct InspectorRunView: View {
     }
 
     private var inspectorHeader: some View {
-        HStack(alignment: .top) {
-            ScratchStyle.headerNumber(3, color: Color.nwebTextSecondary)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Prüfen & Starten")
-                    .font(.nwebTitle)
-                    .foregroundStyle(Color.nwebTextPrimary)
-                Text(headerSubtitle)
-                    .font(.caption)
-                    .foregroundStyle(Color.nwebTextSecondary)
-                    .lineLimit(2)
-            }
-            Spacer()
-            if let selectedStep = store.selectedStep {
-                Text(selectedStep.role.displayName)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.nwebAccent)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.nwebOrange.opacity(0.12), in: Capsule())
-            }
-        }
-        .padding(20)
-        .background(ScratchStyle.stageBackground)
+        PipePaneHeader(
+            number: 3,
+            title: "Debugger",
+            subtitle: headerSubtitle,
+            color: PipesStyle.personaOrange,
+            trailing: store.selectedStep?.role.displayName
+        )
     }
 
     private var headerSubtitle: String {
         if let step = store.selectedStep {
-            return step.title.isEmpty ? "Ausgewählter Skill-Schritt" : step.title
+            return step.title.isEmpty ? "Ausgewählter Pipe-Knoten" : step.title
         }
-        return "WAS-Block in den Ablauf ziehen oder einen Schritt auswählen."
+        return "Operator-Modul auf den Pipe Canvas ziehen oder einen Knoten auswählen."
     }
 
     @ViewBuilder
     private var stepInspector: some View {
         if let step = store.selectedStep {
-            InspectorSection("Skill-Schritt", systemImage: "puzzlepiece") {
+            InspectorSection("Module Inspector", systemImage: "puzzlepiece") {
                 TextField("Titel", text: Binding(
                     get: { step.title },
                     set: { newValue in store.updateSelectedStep { $0.title = newValue } }
@@ -105,7 +88,7 @@ struct InspectorRunView: View {
 
                 InfoControlRow(
                     "WAS",
-                    message: "Bestimmt, was dieser Block mit den Daten macht. Der WAS-Baustein liefert Aufgabe, Fachlogik und Arbeitsmodus."
+                    message: "Bestimmt, was dieses Operator-Modul mit dem Datenfluss macht. Das WAS-Modul liefert Aufgabe, Fachlogik und Arbeitsmodus."
                 ) {
                     Picker("WAS", selection: Binding(
                         get: { step.skillId },
@@ -120,7 +103,7 @@ struct InspectorRunView: View {
 
                 InfoControlRow(
                     "WER",
-                    message: "Optionale Perspektive für diesen Block. Ohne WER arbeitet nur der gewählte WAS-Block."
+                    message: "Optionale Perspektive für dieses Operator-Modul. Ohne WER arbeitet nur das gewählte WAS-Modul."
                 ) {
                     Picker("WER", selection: Binding(
                         get: { step.personaId ?? "" },
@@ -170,11 +153,11 @@ struct InspectorRunView: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(ScratchStyle.operatorsGreen.opacity(0.10), in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius))
+                    .background(PipesStyle.qualityGreen.opacity(0.10), in: RoundedRectangle(cornerRadius: NWEBTheme.smallRadius))
             }
 
-            InspectorSection("Auftrag", systemImage: "text.badge.checkmark") {
-                FieldLabel("Was soll dieser Block tun?")
+            InspectorSection("Module Parameter", systemImage: "text.badge.checkmark") {
+                FieldLabel("Was soll dieses Modul tun?")
                 TextEditor(text: Binding(
                     get: { step.taskText },
                     set: { newValue in store.updateSelectedStep { $0.taskText = newValue } }
@@ -199,7 +182,7 @@ struct InspectorRunView: View {
                 .inspectorTextEditor()
             }
 
-            InspectorSection("Ausgabe", systemImage: "doc.text") {
+            InspectorSection("Output Mapping", systemImage: "doc.text") {
                 TextField("Ergebnisformat", text: Binding(
                     get: { step.outputType },
                     set: { newValue in store.updateSelectedStep { $0.outputType = newValue } }
@@ -218,14 +201,14 @@ struct InspectorRunView: View {
             ContentUnavailableView(
                 "Kein Schritt ausgewählt",
                 systemImage: "sidebar.right",
-                description: Text("Ziehe zuerst einen WAS-Block in den Ablauf.")
+                description: Text("Ziehe zuerst ein Operator-Modul auf den Pipe Canvas.")
             )
         }
     }
 
     private var promptPreview: some View {
-        InspectorSection("Prompt-Vorschau", systemImage: "text.magnifyingglass") {
-            Text("Zeigt, was aus WER + WAS + Auftrag + Daten für den ausgewählten Skill-Schritt entsteht.")
+        InspectorSection("Preview Debugger", systemImage: "text.magnifyingglass") {
+            Text("Zeigt, welcher Prompt aus Source + Operator + Persona + Parametern für den ausgewählten Pipe-Knoten entsteht.")
                 .font(.caption)
                 .foregroundStyle(Color.nwebTextSecondary)
 
@@ -233,7 +216,7 @@ struct InspectorRunView: View {
                 Button {
                     store.refreshPromptPreview()
                 } label: {
-                    Label("Vorschau erzeugen", systemImage: "eye")
+                    Label("Preview erzeugen", systemImage: "eye")
                 }
                 .disabled(store.selectedStep == nil)
 
@@ -261,7 +244,7 @@ struct InspectorRunView: View {
                     PromptTextBlock(text: store.promptPreview.user)
                 }
             } else {
-                Text("Noch keine Vorschau. Wähle einen Schritt und klicke auf Vorschau erzeugen.")
+                    Text("Noch keine Preview. Wähle einen Pipe-Knoten und klicke auf Preview erzeugen.")
                     .font(.caption)
                     .foregroundStyle(Color.nwebTextSecondary)
             }
@@ -269,7 +252,7 @@ struct InspectorRunView: View {
     }
 
     private var runControls: some View {
-        InspectorSection("Ausführung & QS", systemImage: "play.rectangle") {
+        InspectorSection("Pipe Debugger", systemImage: "play.rectangle") {
             gatekeeperSummary
 
             HStack {
@@ -282,7 +265,7 @@ struct InspectorRunView: View {
                 Button {
                     store.triggerPrimaryRunAction()
                 } label: {
-                    Label(store.primaryRunActionTitle, systemImage: store.primaryRunActionIcon)
+                    Label(store.primaryRunActionTitle == "Ausführen" ? "Run Pipe" : store.primaryRunActionTitle, systemImage: store.primaryRunActionIcon)
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!store.canUsePrimaryRunAction || (store.workflowMode == .audit && !store.hasReviewWaiting))
@@ -290,10 +273,10 @@ struct InspectorRunView: View {
                 Button {
                     store.abortAndResetRun()
                 } label: {
-                    Label("Abbrechen", systemImage: "xmark.octagon")
+                    Label("Stop / Reset", systemImage: "xmark.octagon")
                 }
                 .disabled(!store.canAbortOrResetRun)
-                .help("Aktuellen Lauf abbrechen und Run-Zustand zurücksetzen.")
+                    .help("Aktuellen Pipe-Lauf abbrechen und Run-Zustand zurücksetzen.")
 
                 Spacer()
 
@@ -311,7 +294,7 @@ struct InspectorRunView: View {
 
             if !store.currentRunDirectory.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Run-Arbeitsverzeichnis")
+                    Text("Pipe-Arbeitsverzeichnis")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Color.nwebTextSecondary)
                     Text(store.currentRunDirectory)
@@ -323,7 +306,7 @@ struct InspectorRunView: View {
 
                 auditChainSummary
 
-                Text("Folge-Skills verwenden nur die `current.md`-Artefakte vorheriger Schritte. Redos ersetzen diesen gültigen Stand.")
+                Text("Nachgelagerte Module lesen nur die `current.md`-Artefakte vorheriger Knoten. Redos ersetzen diesen gültigen Stand.")
                     .font(.caption)
                     .foregroundStyle(Color.nwebTextSecondary)
 
@@ -362,7 +345,7 @@ struct InspectorRunView: View {
             }
 
             if store.runSteps.isEmpty {
-                Text("Noch kein Lauf gestartet.")
+                Text("Noch kein Pipe-Lauf gestartet.")
                     .font(.caption)
                     .foregroundStyle(Color.nwebTextSecondary)
             } else {
@@ -517,7 +500,7 @@ struct InspectorRunView: View {
         InspectorSection("Debug", systemImage: "ladybug") {
             InfoControlRow(
                 "Debug-Modus",
-                message: "Wenn aktiv, zeigt die Run-Ansicht pro Schritt die tatsächlich geschriebenen Eingangsdateien, System-/User-Prompts, Outputs, QS-Prompts, Reviews und Dateipfade aus dem Arbeitsverzeichnis."
+                message: "Wenn aktiv, zeigt der Debugger pro Knoten die tatsächlich geschriebenen Eingangsdateien, System-/User-Prompts, Outputs, QS-Prompts, Reviews und Dateipfade aus dem Arbeitsverzeichnis."
             ) {
                 Toggle("Debug-Modus", isOn: $store.debugModeEnabled)
                     .toggleStyle(.switch)
@@ -527,8 +510,8 @@ struct InspectorRunView: View {
             }
 
             Text(store.debugModeEnabled
-                ? "Aktiv: Im Run-Tab erscheinen pro Schritt Debug-Details zu Rein/Raus-Dateien."
-                : "Inaktiv: Run-Ansicht bleibt kompakt, Nachweisdateien werden weiter im Arbeitsverzeichnis geschrieben."
+                ? "Aktiv: Im Debugger erscheinen pro Knoten Debug-Details zu Rein/Raus-Dateien."
+                : "Inaktiv: Debugger bleibt kompakt, Nachweisdateien werden weiter im Arbeitsverzeichnis geschrieben."
             )
             .font(.caption)
             .foregroundStyle(Color.nwebTextSecondary)
@@ -577,7 +560,7 @@ struct InspectorRunView: View {
             ProviderFieldGroup(
                 title: "OpenAI",
                 color: Color.nwebTextSecondary,
-                description: "Dieser Ablauf nutzt OpenAI für alle Blöcke ohne eigenes Modell-Override."
+                description: "Diese Pipe nutzt OpenAI für alle Module ohne eigenes Modell-Override."
             ) {
                 TextField("OpenAI Modell", text: $store.openAIModel)
                 SecureField(store.hasOpenAIKey ? "OpenAI Key gesetzt" : "OpenAI API Key", text: $store.openAIKey)
@@ -586,7 +569,7 @@ struct InspectorRunView: View {
             ProviderFieldGroup(
                 title: "Anthropic",
                 color: Color.nwebTextSecondary,
-                description: "Dieser Ablauf nutzt Anthropic für alle Blöcke ohne eigenes Modell-Override."
+                description: "Diese Pipe nutzt Anthropic für alle Module ohne eigenes Modell-Override."
             ) {
                 TextField("Anthropic Modell", text: $store.anthropicModel)
                 SecureField(store.hasAnthropicKey ? "Anthropic Key gesetzt" : "Anthropic API Key", text: $store.anthropicKey)
@@ -637,10 +620,10 @@ private enum InspectorPane: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .step: return "Schritt"
-        case .preview: return "Vorschau"
-        case .run: return "Run"
-        case .ai: return "AI"
+        case .step: return "Inspector"
+        case .preview: return "Preview"
+        case .run: return "Debugger"
+        case .ai: return "Settings"
         }
     }
 }
@@ -663,20 +646,7 @@ struct InspectorSection<Content: View>: View {
                 .foregroundStyle(Color.nwebAccent)
             content
         }
-        .padding(18)
-        .background(Color.nwebBackgroundPrimary, in: RoundedRectangle(cornerRadius: ScratchStyle.panelRadius))
-        .overlay(
-            RoundedRectangle(cornerRadius: ScratchStyle.panelRadius)
-                .stroke(Color.nwebBorder)
-        )
-        .overlay(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 3)
-                .fill(Color.nwebAccent)
-                .frame(width: 6)
-                .padding(.vertical, 10)
-                .padding(.leading, 6)
-        }
-        .shadow(color: Color.nwebTextPrimary.opacity(0.06), radius: 8, x: 0, y: 3)
+        .pipePanel(color: Color.nwebAccent)
     }
 }
 
@@ -802,9 +772,9 @@ struct RunStepRow: View {
             }
         }
         .padding(10)
-        .padding(.leading, 8)
-        .scratchBlock(
-            color: ScratchStyle.statusColor(for: step.status),
+        .padding(.top, 4)
+        .pipeModule(
+            color: PipesStyle.statusColor(for: step.status),
             selected: step.status == .needsReview,
             active: step.status == .running || step.status == .needsReview
         )
@@ -881,7 +851,7 @@ struct StatusBadge: View {
     }
 
     private var color: Color {
-        ScratchStyle.statusColor(for: status)
+        PipesStyle.statusColor(for: status)
     }
 }
 

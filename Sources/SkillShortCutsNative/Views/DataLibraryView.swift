@@ -23,56 +23,51 @@ struct DataLibraryView: View {
                 .padding(20)
             }
         }
-        .background(ScratchStyle.paletteBackground)
+        .background(PipesStyle.paneBackground)
     }
 
     private var paletteHeader: some View {
-        HStack(alignment: .center, spacing: 12) {
-            ScratchStyle.headerNumber(1, color: Color.nwebTextSecondary)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Bausteine")
-                    .font(.nwebTitle)
-                    .foregroundStyle(Color.nwebTextPrimary)
-                Text("Daten wählen und Blöcke in den Ablauf ziehen.")
-                    .font(.caption)
-                    .foregroundStyle(Color.nwebTextSecondary)
-                    .lineLimit(2)
-            }
-        }
+        PipePaneHeader(
+            number: 1,
+            title: "Library",
+            subtitle: "Quellen, Eingaben und Module auswählen und auf den Pipe Canvas ziehen.",
+            color: PipesStyle.sourceBlue
+        )
+        .padding(-20)
+        .padding(.bottom, 2)
     }
 
     private var buildGuideSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("Ablauf bauen", systemImage: "hand.draw")
+            Label("Pipe bauen", systemImage: "point.topleft.down.curvedto.point.bottomright.up")
                 .font(.nwebHeadline)
-                .foregroundStyle(ScratchStyle.motionBlue)
+                .foregroundStyle(PipesStyle.sourceBlue)
 
-            Text("Wähle Daten, ziehe Bausteine in die Mitte und starte rechts. Der Ablauf läuft von oben nach unten.")
+            Text("Wie bei Yahoo Pipes: Module aus der Library auf den Canvas ziehen, dort verbinden und im Debugger prüfen.")
                 .font(.caption)
                 .foregroundStyle(Color.nwebTextSecondary)
 
             VStack(alignment: .leading, spacing: 8) {
-                BuildGuideRow(number: 1, title: "Daten", detail: "Ordner oder Text angeben", color: Color.nwebTextSecondary)
-                BuildGuideRow(number: 2, title: "WAS", detail: "Arbeit oder Prüfung ziehen", color: ScratchStyle.looksPurple)
-                BuildGuideRow(number: 3, title: "WER", detail: "optional Perspektive ergänzen", color: ScratchStyle.variablesOrange)
-                BuildGuideRow(number: 4, title: "Start", detail: "Ergebnis prüfen oder Feedback geben", color: Color.nwebTextSecondary)
+                BuildGuideRow(number: 1, title: "Source", detail: "Ordner, Ziel und Kontext setzen", color: PipesStyle.sourceBlue)
+                BuildGuideRow(number: 2, title: "Operator", detail: "WAS-Modul auf den Canvas ziehen", color: PipesStyle.operatorPurple)
+                BuildGuideRow(number: 3, title: "Persona", detail: "WER als Parameter ergänzen", color: PipesStyle.personaOrange)
+                BuildGuideRow(number: 4, title: "Debugger", detail: "Run, QS, Redo und Output prüfen", color: PipesStyle.outputTeal)
             }
         }
-        .scratchPanel()
+        .pipePanel(color: PipesStyle.sourceBlue)
     }
 
     private var modeSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Arbeitsmodus", systemImage: "slider.horizontal.3")
+            Label("Pipe Mode", systemImage: "slider.horizontal.3")
                 .font(.nwebHeadline)
                 .foregroundStyle(Color.nwebAccent)
 
             InfoControlRow(
-                "Arbeitsmodus",
+                "Pipe Mode",
                 message: WorkflowMode.allCases.map { "\($0.label): \($0.description)" }.joined(separator: "\n\n")
             ) {
-                Picker("Arbeitsmodus", selection: $store.workflowMode) {
+                Picker("Pipe Mode", selection: $store.workflowMode) {
                     ForEach(WorkflowMode.allCases) { mode in
                         Text(mode.label).tag(mode)
                     }
@@ -88,16 +83,16 @@ struct DataLibraryView: View {
                 .font(.caption)
                 .foregroundStyle(Color.nwebTextSecondary)
         }
-        .scratchPanel()
+        .pipePanel(color: Color.nwebAccent)
     }
 
     private var workflowSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Auftrag & Daten", systemImage: "tray.full")
+            Label("Source & Inputs", systemImage: "tray.full")
                 .font(.nwebHeadline)
                 .foregroundStyle(Color.nwebAccent)
 
-            TextField("Ablauf-Name", text: Binding(
+                TextField("Pipe-Name", text: Binding(
                 get: { store.workflow.name },
                 set: { newValue in
                     store.workflow.name = newValue
@@ -127,7 +122,7 @@ struct DataLibraryView: View {
                 .font(.caption)
                 .foregroundStyle(Color.nwebTextSecondary)
             HStack {
-                TextField("Zwischenspeicher für Run-Stände", text: $store.workDirectoryPath)
+                TextField("Zwischenspeicher für Pipe-Läufe", text: $store.workDirectoryPath)
                     .onSubmit {
                         store.saveSettings()
                     }
@@ -201,24 +196,24 @@ struct DataLibraryView: View {
             .nwebInputBackground()
             .disabled(store.workflowMode == .audit)
         }
-        .scratchPanel()
+        .pipePanel(color: PipesStyle.sourceBlue)
     }
 
     private var sourceSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Skill-Bibliothek", systemImage: "books.vertical")
+            Label("Module Repository", systemImage: "books.vertical")
                 .font(.nwebHeadline)
                 .foregroundStyle(Color.nwebAccent)
 
             HStack {
-                TextField("Pfad zur Skill-Bibliothek", text: $store.libraryPath)
+                TextField("Pfad zur Modul-Bibliothek", text: $store.libraryPath)
                 Button("Laden") {
                     store.saveSettings()
                     Task { await store.loadLibrary() }
                 }
             }
             if let library = store.library {
-                Text("\(library.items.count) Bausteine · \(library.templates.count) Vorlagen")
+                Text("\(library.items.count) Module · \(library.templates.count) Pipe-Vorlagen")
                     .font(.caption)
                     .foregroundStyle(Color.nwebTextSecondary)
             } else {
@@ -227,19 +222,19 @@ struct DataLibraryView: View {
                     .foregroundStyle(Color.nwebTextSecondary)
             }
         }
-        .scratchPanel()
+        .pipePanel(color: PipesStyle.operatorPurple)
         .disabled(store.workflowMode != .edit)
     }
 
     private var templateSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Fertige Abläufe", systemImage: "rectangle.stack")
+            Label("Saved Pipes", systemImage: "rectangle.stack")
                 .font(.nwebHeadline)
                 .foregroundStyle(Color.nwebAccent)
 
             InfoControlRow(
                 "Vorlage",
-                message: "Wählt einen vorbereiteten Ablauf aus der Skill-Bibliothek. Übernehmen füllt daraus die Prozesskette mit passenden WAS-Schritten."
+                message: "Wählt eine vorbereitete Pipe aus der Modul-Bibliothek. Übernehmen füllt daraus die Prozesskette mit passenden WAS-Modulen."
             ) {
                 Picker("Vorlage", selection: $selectedTemplateID) {
                     Text("Keine Vorlage").tag("")
@@ -250,7 +245,7 @@ struct DataLibraryView: View {
                 .labelsHidden()
             }
 
-            Button("Vorlage als Prozess übernehmen") {
+            Button("Vorlage als Pipe übernehmen") {
                 guard let template = store.library?.templates.first(where: { $0.id == selectedTemplateID }) else { return }
                 store.loadTemplate(template)
             }
@@ -259,12 +254,12 @@ struct DataLibraryView: View {
             Button {
                 store.loadDemoWorkflow()
             } label: {
-                Label("Demo-Prozess laden", systemImage: "wand.and.stars")
+                Label("Demo-Pipe laden", systemImage: "wand.and.stars")
             }
             .buttonStyle(.borderedProminent)
             .disabled(store.library == nil)
         }
-        .scratchPanel()
+        .pipePanel(color: PipesStyle.outputTeal)
         .disabled(store.workflowMode != .edit)
     }
 
@@ -273,20 +268,20 @@ struct DataLibraryView: View {
         let snapshot = paletteSnapshot()
 
         VStack(alignment: .leading, spacing: 10) {
-            Label("Block-Palette", systemImage: "square.grid.3x3")
+            Label("Module Palette", systemImage: "square.grid.3x3")
                 .font(.nwebHeadline)
                 .foregroundStyle(Color.nwebAccent)
 
-            TextField("Suchen: prüfen, schreiben, zusammenfassen...", text: $store.searchText)
+            TextField("Module suchen: prüfen, schreiben, zusammenfassen...", text: $store.searchText)
                 .textFieldStyle(.roundedBorder)
 
             ColorLogicNote()
 
             InfoControlRow(
-                "Baustein-Art",
-                message: "WAS sind ausführbare Blöcke: analysieren, schreiben, prüfen, QS, finalisieren. WER verändert die Perspektive eines WAS-Blocks, erzeugt aber keinen eigenen Arbeitsschritt."
+                "Modultyp",
+                message: "Operator/WAS-Module verarbeiten Daten im Pipe-Fluss. Persona/WER-Module parametrisieren einen Operator, erzeugen aber keinen eigenen Arbeitsschritt."
             ) {
-                Picker("Baustein-Art", selection: $mode) {
+                Picker("Modultyp", selection: $mode) {
                     ForEach(LibraryMode.allCases) { mode in
                         Text(mode.label).tag(mode)
                     }
@@ -299,7 +294,7 @@ struct DataLibraryView: View {
 
             CategoryHint(mode: mode, whatFilter: whatFilter, whoFilter: whoFilter)
 
-            Text("\(snapshot.visibleItems.count) passende Blöcke")
+            Text("\(snapshot.visibleItems.count) passende Module")
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(Color.nwebTextSecondary)
 
@@ -313,7 +308,7 @@ struct DataLibraryView: View {
                 }
             }
         }
-        .scratchPanel()
+        .pipePanel(color: mode == .what ? PipesStyle.operatorPurple : PipesStyle.personaOrange)
         .disabled(store.workflowMode != .edit)
     }
 
@@ -518,15 +513,15 @@ private struct ColorLogicNote: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Color.nwebTextSecondary)
 
-            Text("Blockrand bleibt beim Ziehen erhalten: Violett = WAS, Grün = QS, Orange = WER. Filterchips haben eigene Farben; ihre Zahl zeigt die Treffer in der Liste.")
+            Text("Modulrand bleibt beim Ziehen erhalten: Lila = Operator/WAS, Grün = QS, Orange = Persona/WER. Filterchips haben eigene Farben; ihre Zahl zeigt Treffer.")
                 .font(.caption)
                 .foregroundStyle(Color.nwebTextSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 8) {
-                LegendPill(color: ScratchStyle.looksPurple, text: "WAS")
-                LegendPill(color: ScratchStyle.operatorsGreen, text: "QS")
-                LegendPill(color: ScratchStyle.variablesOrange, text: "WER")
+                LegendPill(color: PipesStyle.operatorPurple, text: "WAS")
+                LegendPill(color: PipesStyle.qualityGreen, text: "QS")
+                LegendPill(color: PipesStyle.personaOrange, text: "WER")
             }
         }
         .padding(10)
@@ -554,10 +549,10 @@ private struct LegendPill: View {
 private struct EmptyFilterState: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Label("Keine Treffer", systemImage: "line.3.horizontal.decrease.circle")
+            Label("Keine Module", systemImage: "line.3.horizontal.decrease.circle")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Color.nwebTextPrimary)
-            Text("Der aktive Filter und die Suche schließen gerade alle Blöcke aus.")
+            Text("Der aktive Filter und die Suche schließen gerade alle Module aus.")
                 .font(.caption)
                 .foregroundStyle(Color.nwebTextSecondary)
         }
@@ -618,11 +613,11 @@ private struct CategoryHint: View {
         switch mode {
         case .what:
             return whatFilter == .all
-                ? "Die Liste darunter zeigt alle passenden WAS- und QS-Blöcke."
+                ? "Die Liste darunter zeigt alle passenden WAS- und QS-Module."
                 : "Die Liste darunter zeigt nur diese Kategorie."
         case .who:
             return whoFilter == .all
-                ? "Die Liste darunter zeigt alle passenden WER-Blöcke."
+                ? "Die Liste darunter zeigt alle passenden WER-Module."
                 : "Die Liste darunter zeigt nur diese Kategorie."
         }
     }
@@ -644,8 +639,8 @@ private enum LibraryMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .what: return "WAS"
-        case .who: return "WER"
+        case .what: return "Operator"
+        case .who: return "Persona"
         }
     }
 }
@@ -674,28 +669,28 @@ private enum WhatFilter: String, CaseIterable, Identifiable, Hashable {
     var description: String {
         switch self {
         case .all:
-            return "Alle WAS- und QS-Blöcke, die zur Suche passen."
+            return "Alle Operator- und QS-Module, die zur Suche passen."
         case .analyze:
-            return "Nur Blöcke, die verstehen, bewerten, vergleichen oder Risiken finden."
+            return "Nur Module, die verstehen, bewerten, vergleichen oder Risiken finden."
         case .create:
-            return "Nur Blöcke, die ein sichtbares Artefakt erzeugen: Text, Report, ADR, PR oder Folienstruktur."
+            return "Nur Module, die ein sichtbares Artefakt erzeugen: Text, Report, ADR, PR oder Folienstruktur."
         case .quality:
-            return "Nur Prüf-, Lektorats-, Audit- und Quality-Gate-Blöcke."
+            return "Nur Prüf-, Lektorats-, Audit- und Quality-Gate-Module."
         case .decide:
-            return "Nur Blöcke für Strategie, Priorisierung, Business Case und Entscheidungsvorlagen."
+            return "Nur Module für Strategie, Priorisierung, Business Case und Entscheidungsvorlagen."
         case .automate:
-            return "Nur Blöcke mit Prozess-, Betriebs-, Engineering- oder Umsetzungsbezug."
+            return "Nur Module mit Prozess-, Betriebs-, Engineering- oder Umsetzungsbezug."
         }
     }
 
     var color: Color {
         switch self {
         case .all: return Color.nwebTextSecondary
-        case .analyze: return ScratchStyle.sensingBlue
-        case .create: return ScratchStyle.soundPink
-        case .quality: return ScratchStyle.operatorsGreen
-        case .decide: return ScratchStyle.controlOrange
-        case .automate: return ScratchStyle.motionBlue
+        case .analyze: return PipesStyle.sourceBlue
+        case .create: return Color.dynamic(light: 0xB85BA8, dark: 0xE48AD6)
+        case .quality: return PipesStyle.qualityGreen
+        case .decide: return PipesStyle.personaOrange
+        case .automate: return PipesStyle.outputTeal
         }
     }
 
@@ -770,7 +765,7 @@ private enum WhoFilter: String, CaseIterable, Identifiable, Hashable {
     var description: String {
         switch self {
         case .all:
-            return "Alle WER-Blöcke, die zur Suche passen."
+            return "Alle Persona-Module, die zur Suche passen."
         case .domain:
             return "Fachliche Perspektiven mit Experten-, Wissenschafts-, Rechts-, Energie- oder Finanzbezug."
         case .leadership:
@@ -787,11 +782,11 @@ private enum WhoFilter: String, CaseIterable, Identifiable, Hashable {
     var color: Color {
         switch self {
         case .all: return Color.nwebTextSecondary
-        case .domain: return ScratchStyle.sensingBlue
-        case .leadership: return ScratchStyle.controlOrange
-        case .creative: return ScratchStyle.looksPurple
-        case .critical: return ScratchStyle.myBlocksRed
-        case .communication: return ScratchStyle.soundPink
+        case .domain: return PipesStyle.sourceBlue
+        case .leadership: return PipesStyle.personaOrange
+        case .creative: return PipesStyle.operatorPurple
+        case .critical: return Color.dynamic(light: 0xC7474D, dark: 0xF06E73)
+        case .communication: return Color.dynamic(light: 0xB85BA8, dark: 0xE48AD6)
         }
     }
 
@@ -860,6 +855,7 @@ struct LibraryRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
+                PipePort(color: accentColor)
                 Image(systemName: icon)
                     .foregroundStyle(accentColor)
                     .frame(width: 16)
@@ -870,7 +866,10 @@ struct LibraryRow: View {
                 Spacer()
                 Text(badgeTitle)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(Color.nwebTextSecondary)
+                    .foregroundStyle(accentColor)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(accentColor.opacity(0.12), in: Capsule())
             }
             if !item.summary.isEmpty {
                 Text(item.summary)
@@ -880,8 +879,8 @@ struct LibraryRow: View {
             }
         }
         .padding(10)
-        .padding(.leading, 8)
-        .scratchBlock(color: accentColor)
+        .padding(.top, 4)
+        .pipeModule(color: accentColor)
         .onDrag {
             NSItemProvider(object: item.dragPayload as NSString)
         }
@@ -898,7 +897,7 @@ struct LibraryRow: View {
     }
 
     private var accentColor: Color {
-        ScratchStyle.blockColor(for: item.kind)
+        PipesStyle.moduleColor(for: item.kind)
     }
 
     private var badgeTitle: String {

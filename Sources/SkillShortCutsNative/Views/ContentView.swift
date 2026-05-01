@@ -19,30 +19,30 @@ struct ContentView: View {
                 Button {
                     store.newWorkflow()
                 } label: {
-                    Label("Neu", systemImage: "doc.badge.plus")
+                    Label("Neue Pipe", systemImage: "doc.badge.plus")
                 }
 
                 Button {
                     store.saveWorkflow()
                 } label: {
-                    Label("Speichern", systemImage: "square.and.arrow.down")
+                    Label("Pipe speichern", systemImage: "square.and.arrow.down")
                 }
 
                 Button {
                     store.abortAndResetRun()
                 } label: {
-                    Label("Abbrechen", systemImage: "xmark.octagon")
+                    Label("Stop / Reset", systemImage: "xmark.octagon")
                 }
                 .disabled(!store.canAbortOrResetRun)
-                .help("Aktuellen Lauf abbrechen und Run-Zustand zurücksetzen. Die Workflow-Konfiguration bleibt erhalten.")
+                .help("Aktuellen Pipe-Lauf abbrechen und Run-Zustand zurücksetzen. Die Pipe-Konfiguration bleibt erhalten.")
 
                 Button {
                     store.triggerPrimaryRunAction()
                 } label: {
-                    Label(store.primaryRunActionTitle, systemImage: store.primaryRunActionIcon)
+                    Label(store.primaryRunActionTitle == "Ausführen" ? "Run Pipe" : store.primaryRunActionTitle, systemImage: store.primaryRunActionIcon)
                 }
                 .disabled(!store.canUsePrimaryRunAction)
-                .help(store.hasReviewWaiting ? "Aktuellen QS-Schritt freigeben und Workflow fortsetzen" : "Workflow ausführen")
+                .help(store.hasReviewWaiting ? "Aktuellen QS-Knoten freigeben und Pipe fortsetzen" : "Pipe ausführen")
             }
         }
         .font(.nwebBody)
