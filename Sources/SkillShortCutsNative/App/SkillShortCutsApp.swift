@@ -11,7 +11,7 @@ struct SkillShortCutsApp: App {
             ContentView()
                 .environmentObject(store)
                 .preferredColorScheme(store.theme.colorScheme)
-                .frame(minWidth: 1180, minHeight: 760)
+                .frame(minWidth: 1420, minHeight: 820)
                 .task {
                     await store.bootstrap()
                 }

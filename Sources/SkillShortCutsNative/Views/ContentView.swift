@@ -6,13 +6,13 @@ struct ContentView: View {
     var body: some View {
         HSplitView {
             DataLibraryView()
-                .frame(minWidth: 310, idealWidth: 350, maxWidth: 430)
+                .frame(minWidth: 390, idealWidth: 430, maxWidth: 520)
 
             TeamComposerView()
-                .frame(minWidth: 430, idealWidth: 560)
+                .frame(minWidth: 560, idealWidth: 680)
 
             InspectorRunView()
-                .frame(minWidth: 360, idealWidth: 420, maxWidth: 520)
+                .frame(minWidth: 440, idealWidth: 520, maxWidth: 620)
         }
         .toolbar {
             ToolbarItemGroup {

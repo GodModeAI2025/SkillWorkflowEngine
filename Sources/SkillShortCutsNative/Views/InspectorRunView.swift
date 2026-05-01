@@ -15,6 +15,7 @@ struct InspectorRunView: View {
                         Text(pane.title).tag(pane)
                     }
                 }
+                .labelsHidden()
                 .pickerStyle(.segmented)
                 .controlSize(.large)
 
@@ -29,7 +30,7 @@ struct InspectorRunView: View {
             Divider()
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 18) {
                     switch selectedPane {
                     case .step:
                         stepInspector
@@ -43,7 +44,7 @@ struct InspectorRunView: View {
                         providerSettings
                     }
                 }
-                .padding(14)
+                .padding(20)
             }
         }
         .background(ScratchStyle.stageBackground)
@@ -61,6 +62,8 @@ struct InspectorRunView: View {
 
     private var inspectorHeader: some View {
         HStack(alignment: .top) {
+            ScratchStyle.headerNumber(3, color: ScratchStyle.operatorsGreen)
+
             VStack(alignment: .leading, spacing: 3) {
                 Text("Prüfen & Starten")
                     .font(.nwebTitle)
@@ -80,7 +83,7 @@ struct InspectorRunView: View {
                     .background(Color.nwebOrange.opacity(0.12), in: Capsule())
             }
         }
-        .padding(14)
+        .padding(20)
         .background(ScratchStyle.stageBackground)
     }
 
@@ -112,6 +115,7 @@ struct InspectorRunView: View {
                             Text("\(item.kind.label) · \(item.displayName)").tag(item.id)
                         }
                     }
+                    .labelsHidden()
                 }
 
                 InfoControlRow(
@@ -127,6 +131,7 @@ struct InspectorRunView: View {
                             Text(item.displayName).tag(item.id)
                         }
                     }
+                    .labelsHidden()
                 }
 
                 InfoControlRow(
@@ -141,6 +146,7 @@ struct InspectorRunView: View {
                             Text("\(role.displayName) - \(role.shortDescription)").tag(role)
                         }
                     }
+                    .labelsHidden()
                 }
 
                 InfoControlRow(
@@ -155,6 +161,7 @@ struct InspectorRunView: View {
                             Text(mode.rawValue).tag(mode)
                         }
                     }
+                    .labelsHidden()
                 }
             }
 
@@ -485,6 +492,7 @@ struct InspectorRunView: View {
                         Text(mode.label).tag(mode)
                     }
                 }
+                .labelsHidden()
                 .pickerStyle(.segmented)
                 .onChange(of: store.theme) { _, _ in
                     store.saveSettings()
@@ -530,6 +538,7 @@ struct InspectorRunView: View {
                         Text(provider.label).tag(provider)
                     }
                 }
+                .labelsHidden()
                 .pickerStyle(.segmented)
             }
 
@@ -545,6 +554,7 @@ struct InspectorRunView: View {
                         Text(value).tag(value)
                     }
                 }
+                .labelsHidden()
             }
 
             SecureField(store.hasOpenAIKey ? "OpenAI Key gesetzt" : "OpenAI API Key", text: $store.openAIKey)
@@ -587,13 +597,13 @@ struct InspectorSection<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             Label(title, systemImage: systemImage)
                 .font(.nwebHeadline)
                 .foregroundStyle(Color.nwebAccent)
             content
         }
-        .padding(12)
+        .padding(18)
         .background(Color.nwebBackgroundPrimary, in: RoundedRectangle(cornerRadius: ScratchStyle.panelRadius))
         .overlay(
             RoundedRectangle(cornerRadius: ScratchStyle.panelRadius)

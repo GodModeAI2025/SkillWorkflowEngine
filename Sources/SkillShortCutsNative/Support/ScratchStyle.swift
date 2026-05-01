@@ -64,6 +64,14 @@ enum ScratchStyle {
             return Color.nwebError
         }
     }
+
+    static func headerNumber(_ number: Int, color: Color) -> some View {
+        Text("\(number)")
+            .font(.headline.weight(.bold))
+            .foregroundStyle(.white)
+            .frame(width: 34, height: 34)
+            .background(color, in: RoundedRectangle(cornerRadius: 10))
+    }
 }
 
 private struct ScratchBlockModifier: ViewModifier {
@@ -100,7 +108,7 @@ extension View {
     }
 
     func scratchPanel() -> some View {
-        padding(14)
+        padding(18)
             .background(Color.nwebBackgroundPrimary, in: RoundedRectangle(cornerRadius: ScratchStyle.panelRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: ScratchStyle.panelRadius)

@@ -9,7 +9,8 @@ struct DataLibraryView: View {
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 22) {
+                    paletteHeader
                     buildGuideSection
                     modeSection
                     workflowSection
@@ -17,10 +18,26 @@ struct DataLibraryView: View {
                     templateSection
                     librarySection
                 }
-                .padding(14)
+                .padding(20)
             }
         }
         .background(ScratchStyle.paletteBackground)
+    }
+
+    private var paletteHeader: some View {
+        HStack(alignment: .center, spacing: 12) {
+            ScratchStyle.headerNumber(1, color: ScratchStyle.looksPurple)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Bausteine")
+                    .font(.nwebTitle)
+                    .foregroundStyle(Color.nwebTextPrimary)
+                Text("Daten wählen und Blöcke in den Ablauf ziehen.")
+                    .font(.caption)
+                    .foregroundStyle(Color.nwebTextSecondary)
+                    .lineLimit(2)
+            }
+        }
     }
 
     private var buildGuideSection: some View {
@@ -58,6 +75,7 @@ struct DataLibraryView: View {
                         Text(mode.label).tag(mode)
                     }
                 }
+                .labelsHidden()
                 .pickerStyle(.segmented)
                 .onChange(of: store.workflowMode) { _, _ in
                     store.saveSettings()
@@ -227,6 +245,7 @@ struct DataLibraryView: View {
                         Text("\(template.id) · \(template.title)").tag(template.id)
                     }
                 }
+                .labelsHidden()
             }
 
             Button("Vorlage als Prozess übernehmen") {
@@ -265,6 +284,7 @@ struct DataLibraryView: View {
                         Text(mode.label).tag(mode)
                     }
                 }
+                .labelsHidden()
                 .pickerStyle(.segmented)
             }
 

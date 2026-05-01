@@ -10,7 +10,7 @@ struct TeamComposerView: View {
             header
             Divider()
             ScrollView {
-                LazyVStack(spacing: 12) {
+                LazyVStack(spacing: 18) {
                     if store.workflow.steps.isEmpty {
                         emptyDropZone
                     } else {
@@ -20,9 +20,9 @@ struct TeamComposerView: View {
                         addDropZone
                     }
                 }
-                .padding(16)
+                .padding(22)
             }
-            .background(Color.nwebBackgroundSecondary)
+            .background(ScratchStyle.workspaceBackground)
             .onDrop(of: [.plainText], isTargeted: $isDropTarget) { providers in
                 loadPayload(from: providers) { payload in
                     store.handleDrop(payload: payload)
@@ -34,6 +34,8 @@ struct TeamComposerView: View {
 
     private var header: some View {
         HStack {
+            ScratchStyle.headerNumber(2, color: ScratchStyle.motionBlue)
+
             VStack(alignment: .leading, spacing: 3) {
                 Text("Ablauf")
                     .font(.nwebTitle)
@@ -43,14 +45,14 @@ struct TeamComposerView: View {
                     .foregroundStyle(Color.nwebTextSecondary)
             }
             Spacer()
-            Text("\(store.workflow.steps.count) Schritte")
+            Text("\(store.workflow.steps.count) Blöcke")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Color.nwebAccent)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(Color.nwebOrange.opacity(0.12), in: Capsule())
         }
-        .padding(16)
+        .padding(20)
         .background(ScratchStyle.stageBackground)
     }
 
@@ -66,7 +68,7 @@ struct TeamComposerView: View {
                 .font(.caption)
                 .foregroundStyle(Color.nwebTextSecondary)
         }
-        .frame(maxWidth: .infinity, minHeight: 260)
+        .frame(maxWidth: .infinity, minHeight: 320)
         .background(isDropTarget ? ScratchStyle.looksPurple.opacity(0.16) : Color.nwebBackgroundPrimary, in: RoundedRectangle(cornerRadius: ScratchStyle.panelRadius))
         .overlay(
             RoundedRectangle(cornerRadius: ScratchStyle.panelRadius)
@@ -92,7 +94,8 @@ struct TeamComposerView: View {
         .font(.caption.weight(.semibold))
         .foregroundStyle(Color.nwebTextSecondary)
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 18)
         .background(Color.nwebBackgroundPrimary, in: RoundedRectangle(cornerRadius: ScratchStyle.blockRadius))
         .overlay(
             RoundedRectangle(cornerRadius: ScratchStyle.blockRadius)
@@ -119,12 +122,12 @@ struct ConsultantCard: View {
             store.selectStep(step.id)
         } label: {
             VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .top, spacing: 12) {
+                HStack(alignment: .top, spacing: 14) {
                     Text("\(index + 1)")
                         .font(.caption.weight(.bold))
                         .foregroundStyle(.white)
-                        .frame(width: 30, height: 30)
-                        .background(blockColor, in: RoundedRectangle(cornerRadius: 9))
+                        .frame(width: 36, height: 36)
+                        .background(blockColor, in: RoundedRectangle(cornerRadius: 11))
 
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 7) {
@@ -161,7 +164,7 @@ struct ConsultantCard: View {
 
                     Spacer()
 
-                    VStack(alignment: .trailing, spacing: 6) {
+                    VStack(alignment: .trailing, spacing: 8) {
                         if let runState, runState.status != .pending {
                             HStack(spacing: 5) {
                                 if runState.status == .running {
@@ -197,8 +200,8 @@ struct ConsultantCard: View {
                     )
                 }
             }
-            .padding(14)
-            .padding(.leading, 8)
+            .padding(18)
+            .padding(.leading, 10)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

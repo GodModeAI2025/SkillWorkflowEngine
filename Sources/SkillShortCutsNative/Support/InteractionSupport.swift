@@ -46,10 +46,10 @@ struct InfoControlRow<Content: View>: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 8) {
+        HStack(alignment: .center, spacing: 12) {
             content
                 .controlSize(.large)
-                .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
+                .frame(maxWidth: .infinity, minHeight: 42, alignment: .leading)
 
             InfoButton(title: title, message: message)
         }
