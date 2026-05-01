@@ -4,7 +4,9 @@ import SwiftUI
 struct DataLibraryView: View {
     @EnvironmentObject private var store: AppStore
     @State private var selectedTemplateID = ""
-    @State private var mode: LibraryMode = .skills
+    @State private var mode: LibraryMode = .what
+    @State private var whatFilter: WhatFilter = .all
+    @State private var whoFilter: WhoFilter = .all
 
     var body: some View {
         VStack(spacing: 0) {
@@ -52,7 +54,7 @@ struct DataLibraryView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 BuildGuideRow(number: 1, title: "Daten", detail: "Ordner oder Text angeben", color: ScratchStyle.motionBlue)
-                BuildGuideRow(number: 2, title: "WAS", detail: "Skill-Block in den Ablauf ziehen", color: ScratchStyle.looksPurple)
+                BuildGuideRow(number: 2, title: "WAS", detail: "Arbeit oder Prüfung ziehen", color: ScratchStyle.looksPurple)
                 BuildGuideRow(number: 3, title: "WER", detail: "optional Perspektive ergänzen", color: ScratchStyle.variablesOrange)
                 BuildGuideRow(number: 4, title: "Start", detail: "Ergebnis prüfen oder Feedback geben", color: ScratchStyle.operatorsGreen)
             }
@@ -276,10 +278,10 @@ struct DataLibraryView: View {
                 .textFieldStyle(.roundedBorder)
 
             InfoControlRow(
-                "Modus",
-                message: "WAS macht die Arbeit. WER gibt eine Perspektive oder Haltung. QS prüft das Ergebnis."
+                "Baustein-Art",
+                message: "WAS sind ausführbare Blöcke: analysieren, schreiben, prüfen, QS, finalisieren. WER verändert die Perspektive eines WAS-Blocks, erzeugt aber keinen eigenen Arbeitsschritt."
             ) {
-                Picker("Modus", selection: $mode) {
+                Picker("Baustein-Art", selection: $mode) {
                     ForEach(LibraryMode.allCases) { mode in
                         Text(mode.label).tag(mode)
                     }
@@ -288,7 +290,13 @@ struct DataLibraryView: View {
                 .pickerStyle(.segmented)
             }
 
-            CategoryHint(mode: mode)
+            filterBar
+
+            CategoryHint(mode: mode, whatFilter: whatFilter, whoFilter: whoFilter)
+
+            Text("\(itemsForMode.count) passende Blöcke")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(Color.nwebTextSecondary)
 
             LazyVStack(spacing: 8) {
                 ForEach(itemsForMode) { item in
@@ -302,12 +310,50 @@ struct DataLibraryView: View {
 
     private var itemsForMode: [LibraryItem] {
         switch mode {
-        case .skills:
-            return store.filteredItems().filter { $0.kind == .consultingAgent || $0.kind == .jobSkill || $0.kind == .qualityGate }
-        case .personas:
+        case .what:
+            return store.filteredItems()
+                .filter { $0.kind == .consultingAgent || $0.kind == .jobSkill || $0.kind == .qualityGate }
+                .filter { whatFilter.matches($0) }
+        case .who:
             return store.filteredItems(kind: .personaSkill)
-        case .quality:
-            return store.filteredItems().filter { $0.kind == .qualityGate || $0.tags.contains("quality") }
+                .filter { whoFilter.matches($0) }
+        }
+    }
+
+    @ViewBuilder
+    private var filterBar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Filter")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.nwebTextSecondary)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    switch mode {
+                    case .what:
+                        ForEach(WhatFilter.allCases) { filter in
+                            FilterChip(
+                                title: filter.label,
+                                isSelected: whatFilter == filter,
+                                color: filter.color
+                            ) {
+                                whatFilter = filter
+                            }
+                        }
+                    case .who:
+                        ForEach(WhoFilter.allCases) { filter in
+                            FilterChip(
+                                title: filter.label,
+                                isSelected: whoFilter == filter,
+                                color: filter.color
+                            ) {
+                                whoFilter = filter
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
+            }
         }
     }
 
@@ -362,8 +408,31 @@ private struct BuildGuideRow: View {
     }
 }
 
+private struct FilterChip: View {
+    let title: String
+    let isSelected: Bool
+    let color: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(isSelected ? .white : color)
+                .padding(.horizontal, 11)
+                .padding(.vertical, 7)
+                .background(isSelected ? color : color.opacity(0.11), in: Capsule())
+                .overlay(Capsule().stroke(color.opacity(isSelected ? 0 : 0.35)))
+        }
+        .buttonStyle(.plain)
+        .contentShape(Capsule())
+    }
+}
+
 private struct CategoryHint: View {
     let mode: LibraryMode
+    let whatFilter: WhatFilter
+    let whoFilter: WhoFilter
 
     var body: some View {
         HStack(spacing: 8) {
@@ -382,39 +451,184 @@ private struct CategoryHint: View {
 
     private var text: String {
         switch mode {
-        case .skills:
-            return "WAS-Blöcke sind Aktionen: analysieren, schreiben, prüfen, zusammenfassen."
-        case .personas:
-            return "WER-Blöcke ändern die Perspektive, ohne einen neuen Arbeitsschritt zu erzeugen."
-        case .quality:
-            return "QS-Blöcke prüfen Ergebnisse oder machen sie lesbarer."
+        case .what:
+            return whatFilter.description
+        case .who:
+            return whoFilter.description
         }
     }
 
     private var color: Color {
         switch mode {
-        case .skills:
-            return ScratchStyle.looksPurple
-        case .personas:
-            return ScratchStyle.variablesOrange
-        case .quality:
-            return ScratchStyle.operatorsGreen
+        case .what:
+            return whatFilter.color
+        case .who:
+            return whoFilter.color
         }
     }
 }
 
 private enum LibraryMode: String, CaseIterable, Identifiable {
-    case skills
-    case personas
-    case quality
+    case what
+    case who
 
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .skills: return "WAS"
-        case .personas: return "WER"
-        case .quality: return "QS"
+        case .what: return "WAS"
+        case .who: return "WER"
         }
+    }
+}
+
+private enum WhatFilter: String, CaseIterable, Identifiable {
+    case all
+    case analyze
+    case create
+    case quality
+    case decide
+    case automate
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .all: return "Alle"
+        case .analyze: return "Analysieren"
+        case .create: return "Erstellen"
+        case .quality: return "Prüfen/QS"
+        case .decide: return "Entscheiden"
+        case .automate: return "Automatisieren"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .all:
+            return "WAS sind ausführbare Blöcke: Arbeit, Analyse, Schreiben, QS und Finale."
+        case .analyze:
+            return "Analysieren zeigt Blöcke, die verstehen, bewerten, vergleichen oder Risiken finden."
+        case .create:
+            return "Erstellen zeigt Blöcke, die Texte, ADRs, Reports, PRs oder Zusammenfassungen erzeugen."
+        case .quality:
+            return "Prüfen/QS zeigt Quality Gates, Lektorat, kritische Reviews und Abschlussprüfungen."
+        case .decide:
+            return "Entscheiden zeigt Blöcke für Strategie, Priorisierung, Business Case und Entscheidungsvorlagen."
+        case .automate:
+            return "Automatisieren zeigt Blöcke mit Prozess-, Technik-, Agenten- oder Umsetzungsbezug."
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .all: return ScratchStyle.looksPurple
+        case .analyze: return ScratchStyle.sensingBlue
+        case .create: return ScratchStyle.looksPurple
+        case .quality: return ScratchStyle.operatorsGreen
+        case .decide: return ScratchStyle.eventYellow
+        case .automate: return ScratchStyle.motionBlue
+        }
+    }
+
+    func matches(_ item: LibraryItem) -> Bool {
+        switch self {
+        case .all:
+            return true
+        case .analyze:
+            return item.matchesAny(["analyse", "analysis", "analys", "review", "bewert", "audit", "diagnos", "risk", "risiko", "architektur", "architecture", "security", "strategie"])
+        case .create:
+            return item.matchesAny(["schreib", "dokument", "report", "adr", "pr-", "pull request", "folie", "summary", "zusammenfass", "text", "redaktion", "lektor"])
+        case .quality:
+            return item.kind == .qualityGate || item.matchesAny(["prüf", "pruef", "qs", "quality", "lektor", "review", "kritisch", "valid", "check", "gate", "sicherheit"])
+        case .decide:
+            return item.matchesAny(["entscheidung", "decision", "strategie", "prioris", "business case", "management", "governance", "roadmap", "invest", "kosten"])
+        case .automate:
+            return item.matchesAny(["agent", "workflow", "prozess", "automation", "orchestr", "backoffice", "service", "operation", "code", "developer", "engineer"])
+        }
+    }
+}
+
+private enum WhoFilter: String, CaseIterable, Identifiable {
+    case all
+    case domain
+    case leadership
+    case creative
+    case critical
+    case communication
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .all: return "Alle"
+        case .domain: return "Fachrolle"
+        case .leadership: return "Führung"
+        case .creative: return "Kreativ"
+        case .critical: return "Kritisch"
+        case .communication: return "Kommunikation"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .all:
+            return "WER-Blöcke ändern die Perspektive, Haltung oder Sprache eines WAS-Blocks."
+        case .domain:
+            return "Fachrolle zeigt berufliche Perspektiven wie Architektur, Engineering, Betrieb, Security oder Finance."
+        case .leadership:
+            return "Führung zeigt strategische, Management- und Entscheider-Perspektiven."
+        case .creative:
+            return "Kreativ zeigt visionäre, gestalterische oder ungewohnte Denkhaltungen."
+        case .critical:
+            return "Kritisch zeigt skeptische, prüfende oder risiko-orientierte Perspektiven."
+        case .communication:
+            return "Kommunikation zeigt Perspektiven für Story, Redaktion, Marketing, Moderation oder Anschlussfähigkeit."
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .all: return ScratchStyle.variablesOrange
+        case .domain: return ScratchStyle.motionBlue
+        case .leadership: return ScratchStyle.eventYellow
+        case .creative: return ScratchStyle.soundPink
+        case .critical: return ScratchStyle.controlOrange
+        case .communication: return ScratchStyle.variablesOrange
+        }
+    }
+
+    func matches(_ item: LibraryItem) -> Bool {
+        switch self {
+        case .all:
+            return true
+        case .domain:
+            return item.matchesAny(["architect", "architekt", "engineer", "developer", "manager", "specialist", "technician", "security", "data", "cloud", "software", "infrastruktur", "infrastructure", "finance", "business"])
+        case .leadership:
+            return item.matchesAny(["ceo", "cfo", "cto", "leader", "führung", "management", "stratege", "investor", "mogul", "direktor", "executive", "bezos", "jobs", "musk"])
+        case .creative:
+            return item.matchesAny(["creative", "kreativ", "design", "vision", "innov", "artist", "autor", "philosoph", "community", "evangelist", "verlag"])
+        case .critical:
+            return item.matchesAny(["krit", "skept", "risk", "risiko", "challenge", "auditor", "security", "compliance", "jurist", "controlling", "verteidigung"])
+        case .communication:
+            return item.matchesAny(["kommunikation", "marketing", "reporter", "lektor", "editor", "moderator", "coach", "sales", "story", "redaktion"])
+        }
+    }
+}
+
+private extension LibraryItem {
+    func matchesAny(_ keywords: [String]) -> Bool {
+        let haystack = [
+            id,
+            name,
+            title,
+            summary,
+            tags.joined(separator: " "),
+            content
+        ]
+            .joined(separator: " ")
+            .lowercased()
+
+        return keywords.contains { haystack.contains($0.lowercased()) }
     }
 }
 
