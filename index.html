@@ -319,6 +319,32 @@
       padding: 1.5rem;
     }
 
+    .example-figure {
+      margin: 0 0 2rem;
+    }
+
+    .example-image-link {
+      display: block;
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .example-image {
+      display: block;
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg-secondary);
+      box-shadow: 0 16px 44px rgba(50, 42, 38, 0.12);
+    }
+
+    .example-caption {
+      color: var(--text-secondary);
+      font-size: 0.92rem;
+      margin-top: 0.75rem;
+      text-align: center;
+    }
+
     .example-step {
       display: grid;
       grid-template-columns: 2.6rem minmax(0, 1fr);
@@ -661,6 +687,12 @@
     <div class="container">
       <h2 class="section-title">Beispiel: Architekturberatung</h2>
       <p class="section-subtitle">Ein Ordner wird durch mehrere Skill-Schritte geführt, bis ein prüfbares Ergebnis entsteht</p>
+      <figure class="example-figure">
+        <a class="example-image-link" href="example.png" aria-label="Screenshot-Beispiel in voller Größe öffnen">
+          <img class="example-image" src="example.png" alt="SkillShortCuts Beispiel mit Auftrag, Skill-Prozesskette, laufendem Schritt und Inspector" loading="lazy">
+        </a>
+        <figcaption class="example-caption">Beispiel eines laufenden Skill-Prozesses mit strukturiertem Auftrag, mehreren Skill-Schritten und QS-Inspector.</figcaption>
+      </figure>
       <div class="example-flow">
         <div class="example-step">
           <div class="example-number">1</div>
