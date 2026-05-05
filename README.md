@@ -25,9 +25,13 @@ Daten + Auftrag  ->     WER + WAS + Rolle + QS    ->    Review, Redo, Audit
 - manuelle Freigabe, Auto-QS, Redo mit Feedback und sichtbarer Wartezustand im Workflow
 - dynamischer Play-Button: Startet den Workflow oder gibt den wartenden Schritt frei
 - Abbruch/Reset für einen laufenden Workflow
+- `Erneut mit gleichem Inhalt starten` nach abgeschlossenem Workflow
 - zentral konfigurierbares Arbeitsverzeichnis mit frischem Unterordner je Run
 - Debug-Modus für Input, Systemprompt, Userprompt, Output, Review und QS je Schritt
 - Audit v2 mit `CHAIN.jsonl`, Genesis, Event-Hashes, Seal/Abort und Standalone-Verifier
+- lokale Erklärfunktion für App-Zustand, Workflow, Schritt, Run, Workspace und Knöpfe
+- testbarer Runner über `LLMCompleting`; aktuell 14 Tests für Graph, Gatekeeper,
+  Workspace, Feedback, Restart, Einstellungen, Erklärung und Dokumentationssignale
 - NWEB-Farbsystem und App-Icon für die native App
 
 ## Warum
@@ -71,6 +75,8 @@ Arbeitsverzeichnis.
    `current.md`; alte Versuche bleiben unter `attempts/`.
 9. Nach Abschluss wird der Run versiegelt und kann mit dem Standalone-Verifier
    geprüft werden.
+10. Bei Bedarf kann derselbe Workflow mit demselben Inhalt erneut gestartet
+    werden. Die App legt dafür wieder einen frischen Run-Ordner an.
 
 ## Intent / Operate / Check
 
@@ -122,6 +128,24 @@ Der Play-Button oben rechts ist kontextsensitiv:
   vorherigem Ergebnis und Korrekturprompt erneut ausgeführt
 - der Abbruch-Button beendet den aktuellen Workflow, schreibt `WORKFLOW_ABORTED`
   in die Chain und setzt den inhaltlichen Run-Zustand zurück
+- nach einem abgeschlossenen Run bietet der Debugger `Erneut mit gleichem Inhalt
+  starten` an und erzeugt dafür ein neues Arbeitsverzeichnis
+
+## Erklärfunktion
+
+Im Inspector gibt es den Tab `Erklären`. `Alles erklären` erzeugt lokal eine
+verständliche Erklärung aus dem aktuellen App-Zustand. Dafür wird kein LLM-Call
+ausgeführt. Erklärt werden:
+
+- Auftrag, Eingabeordner und Arbeitsverzeichnis
+- Skill-Graph mit WAS, WER, Rolle, QS und Input-Modus
+- ausgewählter Schritt, Abhängigkeiten und Status
+- Gatekeeper, Audit-Chain und Run-Zustand
+- Bedeutung der wichtigsten Knöpfe: Play, Gatekeeper prüfen, Redo, Stop/Reset,
+  Debug-Modus und Restart
+
+Die Erklärfunktion ist bewusst deterministisch, damit sie auch bei fehlendem
+API-Key und in Tests funktioniert.
 
 ## Rollen
 
@@ -240,6 +264,14 @@ regelbasiert und prüft unter anderem:
 - fehlender oder ungültiger Eingabeordner
 - unklarer Auftrag
 - fehlender Provider-API-Key
+- fehlende Provider-Modelle und Step-Provider-Overrides ohne passenden Key
+- ungültiges Arbeitsverzeichnis oder fehlender Parent-Ordner
+- nicht geladene Bibliothek, fehlende Skills oder fehlende Personas
+- falsche WAS/WER-Zuordnung, etwa Persona im Operator-Feld
+- ungültige Pipe-Graphen: doppelte IDs, Selected ohne Eingang, unbekannte oder
+  zukünftige Input-Knoten
+- Prompt-Konstruktion: Input-Policy und Dependency-Artefakte müssen im Prompt
+  sichtbar sein
 - Prompt-Injection-ähnliche Muster in Nutzereingaben
 - Prompt-Instruktionen im Ordnerkontext
 
@@ -416,6 +448,38 @@ Start verifizieren:
 Das Script baut mit SwiftPM, erstellt `dist/SkillShortCuts.app` und startet die
 native macOS App.
 
+## Tests
+
+Die Test-Suite führt echte App-Orchestrierung ohne Netzwerk aus. Dafür ist der
+Runner über `LLMCompleting` injizierbar: Produktion nutzt `LLMClient`, Tests
+nutzen einen Recording-Client mit kontrollierten Antworten.
+
+```bash
+swift test
+```
+
+Aktuell geprüft:
+
+- Graph-Abhängigkeiten, `Selected`, Ausführungsebenen und downstream-Invalidierung
+- Gatekeeper für Konfiguration, Provider, WER/WAS, Prompt und Inputs
+- Workflow ohne Feedback inklusive Workspace, Auto-QS, Audit-Seal und Restart
+- Workflow mit manuellem Feedback/Redo inklusive `current.md`-Konsistenz
+- App-Schalter und Picker über Speichern/Neuladen
+- Erklärfunktion
+- README, Landing Page und `docs/adr`
+
+Aktueller Stand: 14 Tests, 0 Fehler.
+
+## Architecture Decision Records
+
+Geprüfte ADRs liegen in `docs/adr`:
+
+- ADR-001: Native Skill-Workflow-Player
+- ADR-002: NWEB Corporate Design und Theme
+- ADR-003: Workspace, Audit-Chain und Debug-Nachweise
+- ADR-004: Pipe-Graph, selektive Inputs und parallele Ausführung
+- ADR-005: Erklärfunktion und testbarer Runner
+
 ## Projektstruktur
 
 ```text
@@ -426,6 +490,8 @@ Sources/SkillShortCutsNative/
   Views/            Auftrag, Workflow Composer, Inspector, Run-UI
   Services/         LLM-Client, PromptBuilder, Gatekeeper, WorkspaceWriter
   Support/          Theme, Interaction Helpers, String Helpers
+Tests/              SwiftPM-Tests für Graph, Runner, Workspace, Doku und ADRs
+docs/adr/           Architecture Decision Records
 script/             build_and_run.sh
 ```
 

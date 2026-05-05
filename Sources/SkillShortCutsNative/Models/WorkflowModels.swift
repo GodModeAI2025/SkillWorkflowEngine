@@ -369,6 +369,17 @@ enum RunStatus: String, Codable {
     case failed
 }
 
+extension RunStatus {
+    var isCompletedForDependency: Bool {
+        switch self {
+        case .approved, .done:
+            return true
+        case .idle, .pending, .running, .needsReview, .failed:
+            return false
+        }
+    }
+}
+
 struct RunStepState: Identifiable, Codable, Hashable {
     var id: String
     var index: Int

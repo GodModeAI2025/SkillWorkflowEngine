@@ -654,6 +654,11 @@
           <h3>Workspace, Audit &amp; Debug</h3>
           <p>Jeder Lauf erhält ein frisches Verzeichnis; Debug zeigt Prompts, Daten, Output und Review, Audit v2 schreibt eine CHAIN.jsonl.</p>
         </div>
+        <div class="feature-card">
+          <div class="feature-icon fi-green">&#10067;</div>
+          <h3>Erklärfunktion</h3>
+          <p>Der Tab Erklären beschreibt lokal, was Auftrag, Skill-Graph, ausgewählter Schritt, Run, Workspace und Knöpfe gerade bedeuten.</p>
+        </div>
       </div>
     </div>
   </section>
@@ -678,6 +683,10 @@
         <div class="detail-panel">
           <h3>Abbruch</h3>
           <p>Der Abbruch-Button beendet den aktuellen Run, schreibt WORKFLOW_ABORTED in die Audit-Chain und setzt den inhaltlichen Workflow-Zustand zurück.</p>
+        </div>
+        <div class="detail-panel">
+          <h3>Erneut starten</h3>
+          <p>Nach einem fertigen Run kann derselbe Workflow mit gleichem Inhalt erneut gestartet werden. Dafür entsteht ein neuer Run-Ordner.</p>
         </div>
       </div>
     </div>
@@ -814,6 +823,27 @@
             <div class="provider-name">Anthropic</div>
             <div class="provider-model">claude-opus-4-1-20250805</div>
           </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <h2 class="section-title">Tests &amp; ADRs</h2>
+      <p class="section-subtitle">Die App-Funktionen sind über ausführbare Tests und Architecture Decision Records abgesichert</p>
+      <div class="detail-grid">
+        <div class="detail-panel">
+          <h3>14 automatisierte Tests</h3>
+          <p>Die Suite prüft Graph, Gatekeeper, Settings, Workspace, Feedback-Redo, Audit-Seal, Restart, Erklärfunktion sowie README, Landing Page und ADR-Signale.</p>
+        </div>
+        <div class="detail-panel">
+          <h3>Testbarer Runner</h3>
+          <p>Produktiv läuft OpenAI oder Anthropic. Tests nutzen einen Recording-Client über LLMCompleting und führen die echte Orchestrierung ohne Netzwerk aus.</p>
+        </div>
+        <div class="detail-panel">
+          <h3>Architecture Decision Records</h3>
+          <p>docs/adr dokumentiert native App, NWEB Theme, Workspace/Audit, Pipe-Graph und Erklärfunktion als akzeptierte Entscheidungen.</p>
         </div>
       </div>
     </div>

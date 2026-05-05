@@ -30,12 +30,15 @@ final class AppStore: ObservableObject {
     @Published var errorMessage = ""
     @Published var promptPreview = PromptPreview()
     @Published var gatekeeperReport = GatekeeperReport()
+    @Published var explanationText = ""
 
     private let loader = AIConsultantLibraryLoader()
     private let persistence = WorkflowPersistence()
     private let contextBuilder = FolderContextBuilder()
     private let promptBuilder = PromptBuilder()
-    private let llmClient = LLMClient()
+    private let explanationService = ExplanationService()
+    private let llmClient: any LLMCompleting
+    private let defaults: UserDefaults
     private let workspaceWriter = RunWorkspaceWriter()
     private let gatekeeper = GatekeeperService()
     private var libraryItemsByID: [String: LibraryItem] = [:]
@@ -43,6 +46,11 @@ final class AppStore: ObservableObject {
     private var currentReviewIndex: Int?
     private var activeRunSessionID: UUID?
     private var runActionTask: Task<Void, Never>?
+
+    init(llmClient: any LLMCompleting = LLMClient(), defaults: UserDefaults = .standard) {
+        self.llmClient = llmClient
+        self.defaults = defaults
+    }
 
     var selectedStep: ConsultantStep? {
         guard let selectedStepID else { return nil }
@@ -77,6 +85,17 @@ final class AppStore: ObservableObject {
         isRunning || hasReviewWaiting || !runSteps.isEmpty || !currentRunDirectory.trimmed.isEmpty
     }
 
+    var hasCompletedRun: Bool {
+        !isRunning
+            && activeRunSessionID == nil
+            && !runSteps.isEmpty
+            && runSteps.allSatisfy { $0.status.isCompletedForDependency }
+    }
+
+    var canRestartCompletedRun: Bool {
+        hasCompletedRun && !workflow.steps.isEmpty
+    }
+
     var hasOpenAIKey: Bool {
         !effectiveOpenAIKey.trimmed.isEmpty
     }
@@ -100,7 +119,6 @@ final class AppStore: ObservableObject {
     }
 
     func loadSettings() {
-        let defaults = UserDefaults.standard
         provider = AIProvider(rawValue: defaults.string(forKey: "provider") ?? "") ?? .openAI
         openAIModel = defaults.string(forKey: "openAIModel") ?? Self.defaultOpenAIModel
         let storedAnthropicModel = defaults.string(forKey: "anthropicModel")
@@ -119,7 +137,6 @@ final class AppStore: ObservableObject {
     }
 
     func saveSettings() {
-        let defaults = UserDefaults.standard
         defaults.set(provider.rawValue, forKey: "provider")
         defaults.set(openAIModel, forKey: "openAIModel")
         defaults.set(anthropicModel, forKey: "anthropicModel")
@@ -143,16 +160,20 @@ final class AppStore: ObservableObject {
     func loadLibrary() async {
         do {
             let loadedLibrary = try loader.load(from: libraryPath)
-            library = loadedLibrary
-            libraryItemsByID = loadedLibrary.items.reduce(into: [:]) { result, item in
-                result[item.id] = item
-            }
-            errorMessage = ""
+            setLibrary(loadedLibrary)
         } catch {
             library = nil
             libraryItemsByID = [:]
             errorMessage = error.localizedDescription
         }
+    }
+
+    func setLibrary(_ loadedLibrary: ConsultantLibrary) {
+        library = loadedLibrary
+        libraryItemsByID = loadedLibrary.items.reduce(into: [:]) { result, item in
+            result[item.id] = item
+        }
+        errorMessage = ""
     }
 
     func setWorkflow(_ selected: ShortcutWorkflow) {
@@ -289,7 +310,8 @@ final class AppStore: ObservableObject {
                 addStep(skillId: id)
             }
         } else if payload.hasPrefix("persona:") {
-            let id = String(payload.dropFirst("persona:".count))
+            let rawID = String(payload.dropFirst("persona:".count))
+            let id = rawID.hasPrefix("persona:") ? rawID : "persona:\(rawID)"
             let target = targetStepID ?? selectedStepID
             if let target, let index = workflow.steps.firstIndex(where: { $0.id == target }) {
                 workflow.steps[index].personaId = id
@@ -322,6 +344,17 @@ final class AppStore: ObservableObject {
         transform(&workflow.steps[index])
         invalidatePromptPreview()
         invalidateRunContextForWorkflowEdit()
+    }
+
+    func updateSelectedStepSkill(_ skillId: String) {
+        updateSelectedStep { step in
+            step.skillId = skillId
+            if let item = self.item(id: skillId) {
+                step.title = item.displayName
+                step.taskText = item.summary
+                step.outputType = self.inferOutputType(item)
+            }
+        }
     }
 
     func deleteSelectedStep() {
@@ -421,6 +454,28 @@ final class AppStore: ObservableObject {
             user: prompts.user,
             skillTitle: skill.displayName,
             personaTitle: persona?.displayName ?? "Keine Persona"
+        )
+    }
+
+    func refreshExplanation() {
+        let selectedIndex = selectedStep.flatMap { selected in
+            workflow.steps.firstIndex { $0.id == selected.id }
+        }
+        explanationText = explanationService.explain(
+            workflow: workflow,
+            selectedStep: selectedStep,
+            selectedStepIndex: selectedIndex,
+            library: library,
+            runSteps: runSteps,
+            gatekeeperReport: gatekeeperReport,
+            auditSummary: currentAuditSummary(),
+            provider: provider,
+            openAIModel: openAIModel,
+            anthropicModel: anthropicModel,
+            workDirectoryPath: workDirectoryPath,
+            currentRunDirectory: currentRunDirectory,
+            workflowMode: workflowMode,
+            debugModeEnabled: debugModeEnabled
         )
     }
 
@@ -563,6 +618,11 @@ final class AppStore: ObservableObject {
         guard !workflow.steps.isEmpty, !isRunning else { return }
         runActionTask?.cancel()
         runActionTask = Task { await startRun() }
+    }
+
+    func triggerRestartCompletedRun() {
+        guard canRestartCompletedRun else { return }
+        triggerStartRun()
     }
 
     func triggerApproveCurrentStep() {
@@ -1273,17 +1333,6 @@ private extension String {
             return role.rawValue
         }
         return nil
-    }
-}
-
-private extension RunStatus {
-    var isCompletedForDependency: Bool {
-        switch self {
-        case .approved, .done:
-            return true
-        case .idle, .pending, .running, .needsReview, .failed:
-            return false
-        }
     }
 }
 

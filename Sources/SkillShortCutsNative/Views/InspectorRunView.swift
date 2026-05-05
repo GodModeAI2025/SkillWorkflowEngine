@@ -42,6 +42,8 @@ struct InspectorRunView: View {
                         appearanceSettings
                         debugSettings
                         providerSettings
+                    case .explain:
+                        explanationView
                     }
                 }
                 .padding(20)
@@ -51,11 +53,15 @@ struct InspectorRunView: View {
         .onChange(of: selectedPane) { _, pane in
             if pane == .preview {
                 store.refreshPromptPreview()
+            } else if pane == .explain {
+                store.refreshExplanation()
             }
         }
         .onChange(of: store.selectedStepID) { _, _ in
             if selectedPane == .preview {
                 store.refreshPromptPreview()
+            } else if selectedPane == .explain {
+                store.refreshExplanation()
             }
         }
     }
@@ -92,7 +98,7 @@ struct InspectorRunView: View {
                 ) {
                     Picker("WAS", selection: Binding(
                         get: { step.skillId },
-                        set: { newValue in store.updateSelectedStep { $0.skillId = newValue } }
+                        set: { newValue in store.updateSelectedStepSkill(newValue) }
                     )) {
                         ForEach(store.library?.skills ?? []) { item in
                             Text("\(item.kind.label) · \(item.displayName)").tag(item.id)
@@ -352,6 +358,14 @@ struct InspectorRunView: View {
                 }
                 .disabled(!store.canAbortOrResetRun)
                     .help("Aktuellen Pipe-Lauf abbrechen und Run-Zustand zurücksetzen.")
+
+                if store.canRestartCompletedRun {
+                    Button {
+                        store.triggerRestartCompletedRun()
+                    } label: {
+                        Label("Erneut mit gleichem Inhalt starten", systemImage: "arrow.clockwise")
+                    }
+                }
 
                 Spacer()
 
@@ -628,6 +642,30 @@ struct InspectorRunView: View {
         }
     }
 
+    private var explanationView: some View {
+        InspectorSection("Erklärung", systemImage: "questionmark.circle") {
+            Text("Erzeugt lokal eine Erklärung aus dem aktuellen App-Zustand: Auftrag, Skill-Graph, ausgewählter Schritt, QS, Run, Workspace und Knöpfe.")
+                .font(.caption)
+                .foregroundStyle(Color.nwebTextSecondary)
+
+            Button {
+                store.refreshExplanation()
+            } label: {
+                Label("Alles erklären", systemImage: "text.book.closed")
+            }
+            .buttonStyle(.borderedProminent)
+
+            if store.explanationText.trimmed.isEmpty {
+                Text("Noch keine Erklärung erzeugt.")
+                    .font(.caption)
+                    .foregroundStyle(Color.nwebTextSecondary)
+            } else {
+                PromptTextBlock(text: store.explanationText)
+                    .frame(minHeight: 420)
+            }
+        }
+    }
+
     @ViewBuilder
     private var activeProviderFields: some View {
         switch store.provider {
@@ -690,6 +728,7 @@ private enum InspectorPane: String, CaseIterable, Identifiable {
     case preview
     case run
     case ai
+    case explain
 
     var id: String { rawValue }
 
@@ -699,6 +738,7 @@ private enum InspectorPane: String, CaseIterable, Identifiable {
         case .preview: return "Preview"
         case .run: return "Debugger"
         case .ai: return "Settings"
+        case .explain: return "Erklären"
         }
     }
 }

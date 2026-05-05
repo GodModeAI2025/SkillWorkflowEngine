@@ -1,5 +1,9 @@
 import Foundation
 
+protocol LLMCompleting: Sendable {
+    func complete(_ request: LLMRequest) async throws -> String
+}
+
 struct LLMRequest {
     var provider: AIProvider
     var model: String
@@ -12,7 +16,7 @@ struct LLMRequest {
     var timeoutSeconds: TimeInterval = 180
 }
 
-struct LLMClient {
+struct LLMClient: LLMCompleting, Sendable {
     func complete(_ request: LLMRequest) async throws -> String {
         do {
             switch request.provider {
