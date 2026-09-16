@@ -243,6 +243,11 @@ regelbasiert und prüft unter anderem:
 - Prompt-Injection-ähnliche Muster in Nutzereingaben
 - Prompt-Instruktionen im Ordnerkontext
 
+Vor dem Musterabgleich wird der Text vereinheitlicht (Unicode-Normalisierung,
+unsichtbare Zero-Width-/Bidi-Zeichen entfernt, Leerraum zusammengezogen), damit
+einfache Verschleierungen wie ein Zero-Width-Space mitten in `ignore previous`
+oder Vollbreiten-Buchstaben nicht durchrutschen.
+
 Das Ergebnis ist in der UI sichtbar und liegt als `gatekeeper-report.json` im
 Run-Verzeichnis.
 
@@ -382,7 +387,7 @@ angeboten.
 | Provider | Aktuell konfiguriertes Default-Modell |
 |---|---|
 | OpenAI | `gpt-5.5` |
-| Anthropic | `claude-opus-4-1-20250805` |
+| Anthropic | `claude-opus-5` |
 
 API-Keys können in der App erfasst oder per Environment Variable gesetzt werden:
 
