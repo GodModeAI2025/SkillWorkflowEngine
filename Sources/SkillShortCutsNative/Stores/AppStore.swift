@@ -4,8 +4,14 @@ import Foundation
 @MainActor
 final class AppStore: ObservableObject {
     private static let defaultOpenAIModel = "gpt-5.5"
-    private static let defaultAnthropicModel = "claude-opus-4-1-20250805"
-    private static let legacyAnthropicModel = "claude-opus-4-7"
+    private static let defaultAnthropicModel = "claude-opus-5"
+    /// Gespeicherte Modell-IDs, die beim Laden auf das Default-Modell umgestellt werden.
+    /// Claude Opus 4.1 wurde am 05.08.2026 abgeschaltet; Aufrufe damit liefern nur noch Fehler.
+    private static let replacedAnthropicModels: Set<String> = [
+        "claude-opus-4-7",
+        "claude-opus-4-1",
+        "claude-opus-4-1-20250805"
+    ]
 
     @Published var library: ConsultantLibrary?
     @Published var workflow = ShortcutWorkflow()
@@ -102,7 +108,7 @@ final class AppStore: ObservableObject {
         provider = AIProvider(rawValue: defaults.string(forKey: "provider") ?? "") ?? .openAI
         openAIModel = defaults.string(forKey: "openAIModel") ?? Self.defaultOpenAIModel
         let storedAnthropicModel = defaults.string(forKey: "anthropicModel")
-        anthropicModel = storedAnthropicModel == Self.legacyAnthropicModel
+        anthropicModel = storedAnthropicModel.map { Self.replacedAnthropicModels.contains($0.trimmed) } == true
             ? Self.defaultAnthropicModel
             : (storedAnthropicModel ?? Self.defaultAnthropicModel)
         reasoning = defaults.string(forKey: "reasoning") ?? "high"

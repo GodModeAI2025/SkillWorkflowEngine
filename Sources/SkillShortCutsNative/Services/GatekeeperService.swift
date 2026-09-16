@@ -82,8 +82,28 @@ struct GatekeeperService {
         )
     }
 
+    /// Vereinheitlicht Text vor dem Musterabgleich, damit einfache Verschleierung nicht durchrutscht:
+    /// Unicode-Kompatibilitätsnormalisierung (z. B. Vollbreiten-Buchstaben), unsichtbare
+    /// Zero-Width-/Bidi-Steuerzeichen entfernen, Leerraum auf ein Leerzeichen zusammenziehen.
+    static func normalizedForMatching(_ text: String) -> String {
+        let invisible: Set<UInt32> = [
+            0x00AD, 0x200B, 0x200C, 0x200D, 0x200E, 0x200F,
+            0x202A, 0x202B, 0x202C, 0x202D, 0x202E,
+            0x2060, 0x2061, 0x2062, 0x2063, 0x2064,
+            0x2066, 0x2067, 0x2068, 0x2069, 0xFEFF
+        ]
+        var scalars = String.UnicodeScalarView()
+        for scalar in text.precomposedStringWithCompatibilityMapping.unicodeScalars where !invisible.contains(scalar.value) {
+            scalars.append(scalar)
+        }
+        return String(scalars)
+            .lowercased()
+            .split(whereSeparator: { $0.isWhitespace })
+            .joined(separator: " ")
+    }
+
     private func suspiciousPatterns(in text: String) -> [String] {
-        let lower = text.lowercased()
+        let lower = Self.normalizedForMatching(text)
         let patterns = [
             "ignore previous",
             "ignore all previous",
@@ -96,7 +116,13 @@ struct GatekeeperService {
             "bypass",
             "jailbreak",
             "du bist jetzt",
-            "ignore instructions"
+            "ignore instructions",
+            "disregard previous",
+            "disregard all previous",
+            "ignoriere alle",
+            "<|im_start|>",
+            "[system]",
+            "[inst]"
         ]
         return patterns.filter { lower.contains($0) }
     }

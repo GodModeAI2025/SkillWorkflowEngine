@@ -78,7 +78,15 @@ struct LLMClient {
         urlRequest.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
         let (bytes, response) = try await URLSession.shared.bytes(for: urlRequest)
-        try validate(response: response, data: Data(), label: "Anthropic")
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            // Beim Streaming steht die Fehlermeldung im Body; ohne ihn bliebe nur der Statuscode sichtbar.
+            var body = Data()
+            for try await byte in bytes {
+                body.append(byte)
+                if body.count >= 4_000 { break }
+            }
+            try validate(response: response, data: body, label: "Anthropic")
+        }
         return try await extractAnthropicStream(bytes)
     }
 
@@ -113,6 +121,7 @@ struct LLMClient {
 
     private func extractAnthropicStream(_ bytes: URLSession.AsyncBytes) async throws -> String {
         var parts: [String] = []
+        var stopReason: String?
 
         for try await line in bytes.lines {
             guard line.hasPrefix("data: ") else { continue }
@@ -127,6 +136,10 @@ struct LLMClient {
                let delta = object["delta"] as? [String: Any],
                let text = delta["text"] as? String {
                 parts.append(text)
+            } else if type == "message_delta",
+                      let delta = object["delta"] as? [String: Any],
+                      let reason = delta["stop_reason"] as? String {
+                stopReason = reason
             } else if type == "error",
                       let error = object["error"] as? [String: Any],
                       let message = error["message"] as? String {
@@ -134,7 +147,16 @@ struct LLMClient {
             }
         }
 
-        return parts.joined()
+        let text = parts.joined()
+        switch stopReason {
+        case "refusal":
+            throw RunnerError.apiError("Anthropic hat die Anfrage abgelehnt (stop_reason: refusal). Auftrag oder Datenkontext prüfen.")
+        case "max_tokens":
+            // Abgeschnittene Ausgaben sichtbar machen, statt sie als vollständiges Artefakt weiterzureichen.
+            return text + "\n\n---\n**Hinweis SkillShortCuts:** Ausgabe wurde am Token-Limit abgeschnitten (stop_reason: max_tokens) und ist unvollständig.\n"
+        default:
+            return text
+        }
     }
 
     private func networkMessage(for error: URLError, provider: AIProvider) -> String {
