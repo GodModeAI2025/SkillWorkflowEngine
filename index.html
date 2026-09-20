@@ -793,7 +793,10 @@
       </div>
       <div class="code-block" style="margin-top: 1.5rem;">
         <span class="comment"># Audit-Chain ohne App prüfen</span><br>
-        <span class="cmd">python3</span> script/verify_audit.py &lt;run-dir&gt;/CHAIN.jsonl --report
+        <span class="cmd">python3</span> script/verify_audit.py &lt;run-dir&gt;/CHAIN.jsonl --report<br>
+        <br>
+        <span class="comment"># Gegen den extern notierten Kopf-Hash prüfen</span><br>
+        <span class="cmd">python3</span> script/verify_audit.py &lt;run-dir&gt;/CHAIN.jsonl --expected-head sha256:&lt;kopf&gt;
       </div>
     </div>
   </section>

@@ -27,7 +27,7 @@ Daten + Auftrag  ->     WER + WAS + Rolle + QS    ->    Review, Redo, Audit
 - Abbruch/Reset für einen laufenden Workflow
 - zentral konfigurierbares Arbeitsverzeichnis mit frischem Unterordner je Run
 - Debug-Modus für Input, Systemprompt, Userprompt, Output, Review und QS je Schritt
-- Audit v2 mit `CHAIN.jsonl`, Genesis, Event-Hashes, Seal/Abort und Standalone-Verifier
+- Audit v2 mit `CHAIN.jsonl`, Genesis, Event-Hashes, Seal/Abort und Standalone-Verifier inklusive Abgleich gegen einen extern notierten Kopf-Hash
 - NWEB-Farbsystem und App-Icon für die native App
 
 ## Warum
@@ -351,6 +351,30 @@ Der Verifier prüft:
 - terminalen Seal/Abort
 - referenzierte Artefakt-Hashes für bekannte Pfad-/Hash-Paare
 
+### Kopf-Hash außerhalb des Run-Verzeichnisses festhalten
+
+Alle bisherigen Prüfungen rechnen nur innerhalb der Datei. Wer die Chain
+komplett neu schreibt — Eintrag ändern, alle folgenden Hashes neu berechnen —
+erzeugt wieder eine in sich stimmige Datei. Erkennbar wird das erst, wenn der
+letzte `entry_hash` (der Kopf) außerhalb des Run-Verzeichnisses notiert wurde:
+im Ticket, im Protokoll, in einer Ablage, auf die der Run keinen Zugriff hat.
+
+Kopf nach dem Lauf notieren:
+
+```bash
+python3 script/verify_audit.py <run-dir>/CHAIN.jsonl --print-head
+```
+
+Später gegen den notierten Kopf prüfen:
+
+```bash
+python3 script/verify_audit.py <run-dir>/CHAIN.jsonl --report \
+  --expected-head sha256:<notierter-kopf>
+```
+
+Weicht der Kopf ab, endet der Verifier mit Exit-Code 2 und der Meldung
+`Head hash mismatch`.
+
 ### Grenzen des Nachweises
 
 Das ist noch keine produktive Signatur- oder Trust-Infrastruktur. Die Chain
@@ -360,8 +384,11 @@ verankern oder in Governance-Prozesse zu übergeben.
 
 Konkret bedeutet das:
 
-- Die Chain zeigt, ob die dokumentierte Geschichte nachträglich verändert
-  wurde.
+- Die Chain zeigt einzelne nachträgliche Änderungen: ein geänderter Eintrag
+  passt nicht mehr zu seinem `entry_hash` und zum `prev_hash` des nächsten.
+- Gegen ein vollständiges Neuschreiben der Datei hilft sie nur, wenn der
+  Kopf-Hash außerhalb des Run-Verzeichnisses notiert und mit
+  `--expected-head` gegengeprüft wird.
 - Sie beweist nicht, dass ein LLM-Ergebnis fachlich richtig ist.
 - Sie ersetzt keine Berechtigungs-, Signatur- oder Archivierungsstrategie.
 - Sie ist ein lokaler, menschenlesbarer Audit-Pfad, der später signiert oder
