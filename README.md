@@ -359,11 +359,15 @@ erzeugt wieder eine in sich stimmige Datei. Erkennbar wird das erst, wenn der
 letzte `entry_hash` (der Kopf) außerhalb des Run-Verzeichnisses notiert wurde:
 im Ticket, im Protokoll, in einer Ablage, auf die der Run keinen Zugriff hat.
 
-Kopf nach dem Lauf notieren:
+Kopf nach dem Versiegeln notieren — vorher ändert jeder weitere Eintrag den Kopf
+ganz legitim, ein früher notierter Wert passt später also nicht mehr:
 
 ```bash
 python3 script/verify_audit.py <run-dir>/CHAIN.jsonl --print-head
 ```
+
+Der Kopf wird nur ausgegeben, wenn die Chain alle Prüfungen besteht; eine
+bereits beschädigte Chain lässt sich so nicht versehentlich verankern.
 
 Später gegen den notierten Kopf prüfen:
 
@@ -374,6 +378,14 @@ python3 script/verify_audit.py <run-dir>/CHAIN.jsonl --report \
 
 Weicht der Kopf ab, endet der Verifier mit Exit-Code 2 und der Meldung
 `Head hash mismatch`.
+
+Was das leistet und was nicht: Der Abgleich zeigt, dass die Datei noch die ist,
+deren Kopf jemand notiert hat. Er ist damit genau so viel wert wie die Ablage,
+in der der Kopf liegt — wer die Chain neu schreiben kann und auch den notierten
+Wert ändern kann, gewinnt nichts. Und er sagt nichts darüber, **wann** der Kopf
+notiert wurde: Wer erst manipuliert und danach notiert, hinterlässt einen
+stimmigen Abgleich. Dafür braucht es einen Zeitnachweis oder eine Signatur,
+beides ist hier nicht implementiert.
 
 ### Grenzen des Nachweises
 
@@ -388,7 +400,8 @@ Konkret bedeutet das:
   passt nicht mehr zu seinem `entry_hash` und zum `prev_hash` des nächsten.
 - Gegen ein vollständiges Neuschreiben der Datei hilft sie nur, wenn der
   Kopf-Hash außerhalb des Run-Verzeichnisses notiert und mit
-  `--expected-head` gegengeprüft wird.
+  `--expected-head` gegengeprüft wird. Der notierte Kopf ist seinerseits nur so
+  belastbar wie die Ablage, in der er liegt, und er belegt keinen Zeitpunkt.
 - Sie beweist nicht, dass ein LLM-Ergebnis fachlich richtig ist.
 - Sie ersetzt keine Berechtigungs-, Signatur- oder Archivierungsstrategie.
 - Sie ist ein lokaler, menschenlesbarer Audit-Pfad, der später signiert oder

@@ -152,7 +152,7 @@ def main() -> int:
     parser.add_argument(
         "--print-head",
         action="store_true",
-        help="Print the last entry_hash so it can be recorded outside the run directory",
+        help="Print the last entry_hash, but only if the chain passed every check, so it can be recorded outside the run directory",
     )
     args = parser.parse_args()
 
@@ -163,16 +163,26 @@ def main() -> int:
         errors.append("Chain is valid but not sealed.")
 
     head = str(entries[-1].get("entry_hash", "")) if entries else ""
-    if args.expected_head:
-        expected = normalized_hash(args.expected_head)
-        if not head:
+    matched_head = False
+    if args.expected_head is not None:
+        # An empty value means the caller passed a variable that was never filled.
+        # Silently skipping the comparison would look like a successful check.
+        if not args.expected_head.strip():
+            ok = False
+            errors.append("Empty --expected-head given, nothing to compare.")
+        elif not head:
             ok = False
             errors.append("Chain has no head hash to compare.")
-        elif normalized_hash(head) != expected:
-            ok = False
-            errors.append(f"Head hash mismatch: expected {expected}, found {head}.")
+        else:
+            expected = normalized_hash(args.expected_head)
+            matched_head = normalized_hash(head) == expected
+            if not matched_head:
+                ok = False
+                errors.append(f"Head hash mismatch: expected {expected}, found {head}.")
 
-    if args.print_head:
+    # Only a chain that passed every check may hand out its head: a head recorded from a
+    # broken chain would anchor exactly the state that should have been noticed.
+    if args.print_head and ok:
         print(head)
 
     if args.report:
@@ -184,9 +194,8 @@ def main() -> int:
             print(f"Last event: {entries[-1].get('event')}")
             print(f"Final hash: {entries[-1].get('entry_hash')}")
             print(f"Sealed: {'yes' if sealed else 'no'}")
-        if args.expected_head:
-            matched = bool(head) and normalized_hash(head) == normalized_hash(args.expected_head)
-            print(f"Expected head: {'matched' if matched else 'not matched'}")
+        if args.expected_head is not None:
+            print(f"Expected head: {'matched' if matched_head else 'not matched'}")
         if errors:
             print("\nFindings:")
             for error in errors:
