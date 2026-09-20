@@ -3,6 +3,10 @@
 
 No external dependencies. Usage:
   python3 script/verify_audit.py <run-dir>/CHAIN.jsonl --report
+
+A chain that is rewritten as a whole stays internally consistent, so recompute
+alone cannot detect it. Record the head hash outside the run directory
+(--print-head) and compare it later (--expected-head).
 """
 
 from __future__ import annotations
@@ -131,11 +135,25 @@ def verify(path: Path) -> tuple[bool, list[str], list[dict[str, Any]]]:
     return not errors, errors, entries
 
 
+def normalized_hash(value: str) -> str:
+    value = value.strip().lower()
+    return value if value.startswith("sha256:") else f"sha256:{value}"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify SkillShortCuts CHAIN.jsonl")
     parser.add_argument("chain", type=Path, help="Path to CHAIN.jsonl")
     parser.add_argument("--report", action="store_true", help="Print human-readable report")
     parser.add_argument("--require-seal", action="store_true", help="Fail if chain is not sealed/aborted")
+    parser.add_argument(
+        "--expected-head",
+        help="Fail unless the last entry_hash equals this externally recorded hash",
+    )
+    parser.add_argument(
+        "--print-head",
+        action="store_true",
+        help="Print the last entry_hash, but only if the chain passed every check, so it can be recorded outside the run directory",
+    )
     args = parser.parse_args()
 
     ok, errors, entries = verify(args.chain)
@@ -143,6 +161,29 @@ def main() -> int:
     if args.require_seal and ok and not sealed:
         ok = False
         errors.append("Chain is valid but not sealed.")
+
+    head = str(entries[-1].get("entry_hash", "")) if entries else ""
+    matched_head = False
+    if args.expected_head is not None:
+        # An empty value means the caller passed a variable that was never filled.
+        # Silently skipping the comparison would look like a successful check.
+        if not args.expected_head.strip():
+            ok = False
+            errors.append("Empty --expected-head given, nothing to compare.")
+        elif not head:
+            ok = False
+            errors.append("Chain has no head hash to compare.")
+        else:
+            expected = normalized_hash(args.expected_head)
+            matched_head = normalized_hash(head) == expected
+            if not matched_head:
+                ok = False
+                errors.append(f"Head hash mismatch: expected {expected}, found {head}.")
+
+    # Only a chain that passed every check may hand out its head: a head recorded from a
+    # broken chain would anchor exactly the state that should have been noticed.
+    if args.print_head and ok:
+        print(head)
 
     if args.report:
         print(f"File: {args.chain}")
@@ -153,6 +194,8 @@ def main() -> int:
             print(f"Last event: {entries[-1].get('event')}")
             print(f"Final hash: {entries[-1].get('entry_hash')}")
             print(f"Sealed: {'yes' if sealed else 'no'}")
+        if args.expected_head is not None:
+            print(f"Expected head: {'matched' if matched_head else 'not matched'}")
         if errors:
             print("\nFindings:")
             for error in errors:

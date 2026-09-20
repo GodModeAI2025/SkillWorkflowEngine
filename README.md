@@ -27,7 +27,7 @@ Daten + Auftrag  ->     WER + WAS + Rolle + QS    ->    Review, Redo, Audit
 - Abbruch/Reset für einen laufenden Workflow
 - zentral konfigurierbares Arbeitsverzeichnis mit frischem Unterordner je Run
 - Debug-Modus für Input, Systemprompt, Userprompt, Output, Review und QS je Schritt
-- Audit v2 mit `CHAIN.jsonl`, Genesis, Event-Hashes, Seal/Abort und Standalone-Verifier
+- Audit v2 mit `CHAIN.jsonl`, Genesis, Event-Hashes, Seal/Abort und Standalone-Verifier inklusive Abgleich gegen einen extern notierten Kopf-Hash
 - NWEB-Farbsystem und App-Icon für die native App
 
 ## Warum
@@ -351,6 +351,42 @@ Der Verifier prüft:
 - terminalen Seal/Abort
 - referenzierte Artefakt-Hashes für bekannte Pfad-/Hash-Paare
 
+### Kopf-Hash außerhalb des Run-Verzeichnisses festhalten
+
+Alle bisherigen Prüfungen rechnen nur innerhalb der Datei. Wer die Chain
+komplett neu schreibt — Eintrag ändern, alle folgenden Hashes neu berechnen —
+erzeugt wieder eine in sich stimmige Datei. Erkennbar wird das erst, wenn der
+letzte `entry_hash` (der Kopf) außerhalb des Run-Verzeichnisses notiert wurde:
+im Ticket, im Protokoll, in einer Ablage, auf die der Run keinen Zugriff hat.
+
+Kopf nach dem Versiegeln notieren — vorher ändert jeder weitere Eintrag den Kopf
+ganz legitim, ein früher notierter Wert passt später also nicht mehr:
+
+```bash
+python3 script/verify_audit.py <run-dir>/CHAIN.jsonl --print-head
+```
+
+Der Kopf wird nur ausgegeben, wenn die Chain alle Prüfungen besteht; eine
+bereits beschädigte Chain lässt sich so nicht versehentlich verankern.
+
+Später gegen den notierten Kopf prüfen:
+
+```bash
+python3 script/verify_audit.py <run-dir>/CHAIN.jsonl --report \
+  --expected-head sha256:<notierter-kopf>
+```
+
+Weicht der Kopf ab, endet der Verifier mit Exit-Code 2 und der Meldung
+`Head hash mismatch`.
+
+Was das leistet und was nicht: Der Abgleich zeigt, dass die Datei noch die ist,
+deren Kopf jemand notiert hat. Er ist damit genau so viel wert wie die Ablage,
+in der der Kopf liegt — wer die Chain neu schreiben kann und auch den notierten
+Wert ändern kann, gewinnt nichts. Und er sagt nichts darüber, **wann** der Kopf
+notiert wurde: Wer erst manipuliert und danach notiert, hinterlässt einen
+stimmigen Abgleich. Dafür braucht es einen Zeitnachweis oder eine Signatur,
+beides ist hier nicht implementiert.
+
 ### Grenzen des Nachweises
 
 Das ist noch keine produktive Signatur- oder Trust-Infrastruktur. Die Chain
@@ -360,8 +396,12 @@ verankern oder in Governance-Prozesse zu übergeben.
 
 Konkret bedeutet das:
 
-- Die Chain zeigt, ob die dokumentierte Geschichte nachträglich verändert
-  wurde.
+- Die Chain zeigt einzelne nachträgliche Änderungen: ein geänderter Eintrag
+  passt nicht mehr zu seinem `entry_hash` und zum `prev_hash` des nächsten.
+- Gegen ein vollständiges Neuschreiben der Datei hilft sie nur, wenn der
+  Kopf-Hash außerhalb des Run-Verzeichnisses notiert und mit
+  `--expected-head` gegengeprüft wird. Der notierte Kopf ist seinerseits nur so
+  belastbar wie die Ablage, in der er liegt, und er belegt keinen Zeitpunkt.
 - Sie beweist nicht, dass ein LLM-Ergebnis fachlich richtig ist.
 - Sie ersetzt keine Berechtigungs-, Signatur- oder Archivierungsstrategie.
 - Sie ist ein lokaler, menschenlesbarer Audit-Pfad, der später signiert oder
